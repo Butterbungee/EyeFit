@@ -1,0 +1,10 @@
+make menu view -> click to go to game view
+make game view -> 5 apples
+make score view
+add apple sprite pick up
+add basket sprite
+add basket movement
+add basket collision
+add game score
+
+Prototype done
