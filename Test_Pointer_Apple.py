@@ -13,12 +13,16 @@ class TestPointerApple(arcade.View):
         self.vel_x = 0
         self.vel_y = 0
 
-        self.deadzone = 50
-        self.pointer_radius = 50
+        self.deadzone = self.pointer_radius = 50
 
     def on_draw(self):
         arcade.start_render()
-        arcade.draw_circle_outline(self.pointer_x, self.pointer_y, self.pointer_radius, arcade.color.AERO_BLUE, 2, 20)
+        arcade.draw_circle_outline(self.pointer_x,
+                                   self.pointer_y,
+                                   self.pointer_radius,
+                                   arcade.color.LILAC,
+                                   border_width=2,
+                                   num_segments=20)
 
     def on_update(self, delta_time: float):
         self.move_pointer()
@@ -37,8 +41,11 @@ class TestPointerApple(arcade.View):
             self.pointer_x += x_dist * .3
             self.pointer_y += y_dist * .3
 
+    def on_key_press(self, symbol: int, modifiers: int):
+        arcade.exit()
 
-window = arcade.Window(1280, 720, "EyeFit")
+
+window = arcade.Window(1280, 720, "EyeFit", fullscreen=True, vsync=True)
 test_view = TestPointerApple()
 window.show_view(test_view)
 arcade.run()
