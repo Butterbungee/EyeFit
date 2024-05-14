@@ -26,9 +26,10 @@ import arcade.gui
 file_path = os.path.dirname(os.path.abspath(__file__))
 os.chdir(file_path)
 
-WIDTH = 800
-HEIGHT = 600
-SPRITE_SCALING = 0.5
+WIDTH, HEIGHT = arcade.window_commands.get_display_size()
+APPLE_SCALE = 0.1
+POINTER_SCALE = 0.5
+BASKET_SCALE = 0.1
 
 
 class QuitButton(arcade.gui.UIFlatButton):
@@ -106,8 +107,9 @@ class InstructionView(arcade.View):
                          arcade.color.GRAY, font_size=20, anchor_x="center")
 
     def on_mouse_press(self, _x, _y, _button, _modifiers):
-        game_view = GameView()
-        self.window.show_view(game_view)
+        # game_view = GameView()
+        # self.window.show_view(game_view)
+        arcade.exit()
 
 
 class GameView(arcade.View):
@@ -122,15 +124,14 @@ class GameView(arcade.View):
 
         # Set up the player
         self.score = 0
-        self.player_sprite = arcade.Sprite(":resources:images/animated_characters/female_person/femalePerson_idle.png",
-                                           SPRITE_SCALING)
+        self.player_sprite = arcade.Sprite("basket.png", POINTER_SCALE)
         self.player_sprite.center_x = 50
         self.player_sprite.center_y = 50
         self.player_list.append(self.player_sprite)
 
         for i in range(5):
             # Create the coin instance
-            coin = arcade.Sprite(":resources:images/items/coinGold.png", SPRITE_SCALING / 3)
+            coin = arcade.Sprite("apple.png", APPLE_SCALE)
 
             # Position the coin
             coin.center_x = random.randrange(WIDTH)
@@ -204,8 +205,8 @@ class GameOverView(arcade.View):
         """
         Draw "Game over" across the screen.
         """
-        arcade.draw_text("Game Over", 240, 400, arcade.color.WHITE, 54)
-        arcade.draw_text("Click to restart", 310, 300, arcade.color.WHITE, 24)
+        arcade.draw_text("Game Over", HEIGHT / 2, WIDTH / 2, arcade.color.WHITE, 54)
+        arcade.draw_text("Click to restart", HEIGHT / 2, WIDTH / 2, arcade.color.WHITE, 24)
 
         time_taken_formatted = f"{round(self.time_taken, 2)} seconds"
         arcade.draw_text(f"Time taken: {time_taken_formatted}",
@@ -224,7 +225,7 @@ class GameOverView(arcade.View):
 
 
 def main():
-    window = arcade.Window(WIDTH, HEIGHT, "Different Views Example", resizable=True)
+    window = arcade.Window(WIDTH, HEIGHT, "EyeFit", resizable=False, fullscreen=True)
     window.total_score = 0
     menu_view = MenuView()
     window.show_view(menu_view)
