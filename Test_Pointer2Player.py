@@ -70,11 +70,6 @@ class TestPointerApple(arcade.View):
         super().__init__()
 
         # Sprite lists
-        self.player_list = arcade.SpriteList()
-        self.apple_list = arcade.SpriteList()
-        self.basket_list = arcade.SpriteList()
-
-        # Sprite lists for checking collisions
         self.player_list = None
         self.apple_list = None
         self.basket_list = None
@@ -85,13 +80,6 @@ class TestPointerApple(arcade.View):
         self.old_score = 0
         self.picked_up_state = False
 
-        # List of points the basket will travel too.
-        left, right, bottom, top = arcade.get_viewport()
-        position_list = [[left + 50, bottom + 50],
-                         [right - 50, bottom + 50],
-                         [right - 50, top - 50],
-                         [left + 50, top - 50]]
-
         # Declarations of constants
         self.pointer_x = 0
         self.pointer_y = 0
@@ -101,6 +89,37 @@ class TestPointerApple(arcade.View):
 
         self.deadzone_radius = 50
         self.pointer_radius = 50
+
+        arcade.set_background_color(arcade.color.AMAZON)
+
+    def setup(self):
+        """ Set up the game and initialize the variables. """
+
+        self.player_list = arcade.SpriteList()
+        self.apple_list = arcade.SpriteList()
+        self.basket_list = arcade.SpriteList()
+
+        # Score
+        self.score = 0
+
+        # State of picking
+        self.picked_up_state = False
+
+        # Set up the player
+        player = self.player_sprite = arcade.Sprite("apple.png",
+                                                    SPRITE_SCALING_APPLE,
+                                                    center_x=0,
+                                                    center_y=0)
+
+        player.alpha = 0
+        self.player_list.append(player)
+
+        # List of points the basket will travel too.
+        left, right, bottom, top = arcade.get_viewport()
+        position_list = [[left + 50, bottom + 50],
+                         [right - 50, bottom + 50],
+                         [right - 50, top - 50],
+                         [left + 50, top - 50]]
 
         # Create the basket
         basket = Basket("basket.png",
@@ -113,25 +132,6 @@ class TestPointerApple(arcade.View):
 
         # Add the basket to the basket list
         self.basket_list.append(basket)
-
-        arcade.set_background_color(arcade.color.AMAZON)
-
-    def setup(self):
-        """ Set up the game and initialize the variables. """
-
-        # Score
-        self.score = 0
-
-        # State of picking
-        self.picked_up_state = False
-
-        # Set up the player
-        img = "apple.png"
-        self.player_sprite = arcade.Sprite(img, SPRITE_SCALING_APPLE)
-        self.player_sprite.center_x = 0
-        self.player_sprite.center_y = 0
-        self.player_sprite.alpha = 0
-        self.player_list.append(self.player_sprite)
 
         # Create the apples
         for i in range(APPLE_COUNT):
@@ -153,6 +153,7 @@ class TestPointerApple(arcade.View):
         # Draw all sprites
         self.apple_list.draw()
         self.player_list.draw()
+        self.basket_list.draw()
 
         arcade.draw_circle_outline(self.pointer_x,
                                    self.pointer_y,
@@ -167,7 +168,9 @@ class TestPointerApple(arcade.View):
                          color=arcade.color.WHITE, font_size=14)
 
     def on_update(self, delta_time: float):
+        """ Movement and game logic """
         self.move_pointer()
+        self.basket_list.update()
 
         if not self.picked_up_state:
             # Generate a list of all sprites that collided with the player.
