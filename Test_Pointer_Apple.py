@@ -13,7 +13,8 @@ class TestPointerApple(arcade.View):
         self.vel_x = 0
         self.vel_y = 0
 
-        self.deadzone = self.pointer_radius = 50
+        self.pointer_radius = 50
+        self.deadzone = 25
 
     def on_draw(self):
         arcade.start_render()

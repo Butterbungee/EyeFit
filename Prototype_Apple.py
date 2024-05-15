@@ -6,19 +6,21 @@ SCREEN_TITLE = "Apple Collecting Game"
 SPRITE_SCALING_APPLE = 0.1
 SPRITE_SCALING_BASKET = 0.2
 APPLE_COUNT = 10
-BASKET_SPEED = 1
+BASKET_SPEED = 10
+SPEED_INCREMENT = 1
 
 
 class Basket(arcade.Sprite):
     """
     This class represents the Basket on our screen.
     """
+    speed = 0
 
     def __init__(self, image, scale, position_list):
         super().__init__(image, scale)
         self.position_list = position_list
         self.cur_position = 0
-        self.speed = BASKET_SPEED
+        Basket.speed = BASKET_SPEED
 
     def update(self):
         """ Have a sprite follow a path """
@@ -43,7 +45,7 @@ class Basket(arcade.Sprite):
 
         # How fast should we go? If we are close to our destination,
         # lower our speed, so we don't overshoot.
-        speed = min(self.speed, distance)
+        speed = min(Basket.speed, int(distance))
 
         # Calculate vector to travel
         change_x = math.cos(angle) * speed
@@ -57,7 +59,7 @@ class Basket(arcade.Sprite):
         distance = math.sqrt((self.center_x - dest_x) ** 2 + (self.center_y - dest_y) ** 2)
 
         # If we are there, head to the next point.
-        if distance <= self.speed:
+        if distance <= Basket.speed:
             self.cur_position += 1
 
             # Reached the end of the list, start over.
@@ -184,6 +186,7 @@ class TestPointerApple(arcade.View):
 
         if basket_collision_list and self.picked_up_state:
             for basket in basket_collision_list:
+                Basket.speed += SPEED_INCREMENT
                 self.score += 1
                 self.player_sprite.alpha = 0
                 self.picked_up_state = False
@@ -196,13 +199,13 @@ class TestPointerApple(arcade.View):
         x_dist = self.vel_x - self.pointer_x
         y_dist = self.vel_y - self.pointer_y
 
-        distance = pow(x_dist * x_dist + y_dist * y_dist, 0.5)
+        distance = (x_dist ** 2 + y_dist ** 2) ** 0.5
 
         if distance > self.deadzone_radius:
-            self.pointer_x += x_dist * .1
-            self.pointer_y += y_dist * .1
-            self.player_sprite.center_x += x_dist * .1
-            self.player_sprite.center_y += y_dist * .1
+            self.pointer_x += x_dist * .4
+            self.pointer_y += y_dist * .4
+            self.player_sprite.center_x += x_dist * .4
+            self.player_sprite.center_y += y_dist * .4
 
     def on_key_press(self, symbol: int, modifiers: int):
         arcade.exit()
