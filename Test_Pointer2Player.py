@@ -171,20 +171,22 @@ class TestPointerApple(arcade.View):
         """ Movement and game logic """
         self.move_pointer()
         self.basket_list.update()
+        apple_collision_list = arcade.check_for_collision_with_list(self.player_sprite,
+                                                                    self.apple_list)
+        basket_collision_list = arcade.check_for_collision_with_list(self.player_sprite,
+                                                                     self.basket_list)
 
-        if not self.picked_up_state:
-            # Generate a list of all sprites that collided with the player.
-            apple_hit_list = arcade.check_for_collision_with_list(self.player_sprite,
-                                                                  self.apple_list)
-
-            # Loop through each colliding sprite, remove it, and add to the score.
-            for apple in apple_hit_list:
+        if apple_collision_list and not self.picked_up_state:
+            for apple in apple_collision_list:
                 apple.remove_from_sprite_lists()
-                self.score += 1
-
-            if self.score > self.old_score:
                 self.picked_up_state = True
                 self.player_sprite.alpha = 255
+
+        if basket_collision_list and self.picked_up_state:
+            for basket in basket_collision_list:
+                self.score += 1
+                self.player_sprite.alpha = 0
+                self.picked_up_state = False
 
     def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
         self.vel_x = x
