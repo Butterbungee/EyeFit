@@ -7,7 +7,7 @@ SPRITE_SCALING_APPLE = 0.1
 SPRITE_SCALING_BASKET = 0.2
 APPLE_COUNT = 10
 BASKET_SPEED = 10
-SPEED_INCREMENT = -2
+SPEED_INCREMENT = 2
 OFFSET = 100
 
 
@@ -16,6 +16,7 @@ class Basket(arcade.Sprite):
     This class represents the Basket on our screen.
     """
     speed = 0
+    backwards = False
 
     def __init__(self, image, scale, position_list):
         super().__init__(image, scale)
@@ -31,8 +32,12 @@ class Basket(arcade.Sprite):
         start_y = self.center_y
 
         # Where are we going
-        dest_x = self.position_list[self.cur_position][0]
-        dest_y = self.position_list[self.cur_position][1]
+        if not Basket.backwards:
+            dest_x = self.position_list[self.cur_position][0]
+            dest_y = self.position_list[self.cur_position][1]
+        else:
+            dest_x = self.position_list[self.cur_position - 1][0]
+            dest_y = self.position_list[self.cur_position - 1][1]
 
         # X and Y diff between the two
         x_diff = dest_x - start_x
@@ -61,11 +66,14 @@ class Basket(arcade.Sprite):
 
         # If we are there, head to the next point.
         if distance <= Basket.speed:
-            self.cur_position += 1
-
-            # Reached the end of the list, start over.
-            if self.cur_position >= len(self.position_list):
-                self.cur_position = 0
+            if not Basket.backwards:
+                self.cur_position += 1
+                if self.cur_position >= len(self.position_list):
+                    self.cur_position = 0
+            else:
+                self.cur_position -= 1
+                if self.cur_position < 0:
+                    self.cur_position = len(self.position_list) - 1
 
 
 class TestPointerApple(arcade.View):
@@ -186,10 +194,10 @@ class TestPointerApple(arcade.View):
                 self.player_sprite.alpha = 255
 
         if basket_collision_list and self.picked_up_state:
-            for basket in basket_collision_list:
-                Basket.speed += SPEED_INCREMENT
-                Basket.reverse(basket)
-                Basket.p
+            for _ in basket_collision_list:
+                if Basket.speed < 20:
+                    Basket.speed += SPEED_INCREMENT
+                Basket.backwards = not Basket.backwards
                 self.score += 1
                 self.player_sprite.alpha = 0
                 self.picked_up_state = False
