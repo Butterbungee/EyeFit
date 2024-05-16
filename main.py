@@ -5,7 +5,7 @@ import math
 SCREEN_TITLE = "Apple Collecting Game"
 SPRITE_SCALING_APPLE = 0.1
 SPRITE_SCALING_BASKET = 0.2
-APPLE_COUNT = 10
+APPLE_COUNT = 3
 BASKET_SPEED = 10
 SPEED_INCREMENT = 2
 OFFSET = 100
@@ -36,8 +36,8 @@ class Basket(arcade.Sprite):
             dest_x = self.position_list[self.cur_position][0]
             dest_y = self.position_list[self.cur_position][1]
         else:
-            dest_x = self.position_list[self.cur_position - 1][0]
-            dest_y = self.position_list[self.cur_position - 1][1]
+            dest_x = self.position_list[self.cur_position - 2][0]
+            dest_y = self.position_list[self.cur_position - 2][1]
 
         # X and Y diff between the two
         x_diff = dest_x - start_x
@@ -76,7 +76,31 @@ class Basket(arcade.Sprite):
                     self.cur_position = len(self.position_list) - 1
 
 
-class TestPointerApple(arcade.View):
+class AppleInstruction(arcade.View):
+    def __init__(self):
+        super().__init__()
+
+        self.WIDTH = arcade.get_viewport()[1]
+        self.HEIGHT = arcade.get_viewport()[3]
+
+    def on_show_view(self):
+        arcade.set_background_color(arcade.color.ORANGE_PEEL)
+
+    def on_draw(self):
+        self.clear()
+
+        arcade.draw_text("Instructions Screen", self.WIDTH / 2, self.HEIGHT / 2,
+                         arcade.color.BLACK, font_size=50, anchor_x="center")
+        arcade.draw_text("Click to advance", self.WIDTH / 2, self.HEIGHT / 2 - 75,
+                         arcade.color.GRAY, font_size=20, anchor_x="center")
+
+    def on_mouse_press(self, _x, _y, _button, _modifiers):
+        game_view = AppleMinigame()
+        game_view.setup()
+        self.window.show_view(game_view)
+
+
+class AppleMinigame(arcade.View):
     def __init__(self):
         super().__init__()
 
@@ -90,6 +114,12 @@ class TestPointerApple(arcade.View):
         self.score = 0
         self.old_score = 0
         self.picked_up_state = False
+
+        # Coordinate container
+        self.recording: list = []
+
+        # Tick counter variable
+        self.counter = 0
 
         # Declarations of constants
         self.pointer_x = 0
@@ -105,15 +135,15 @@ class TestPointerApple(arcade.View):
 
     def setup(self):
         """ Set up the game and initialize the variables. """
-
+        # Sprite containers
         self.player_list = arcade.SpriteList()
         self.apple_list = arcade.SpriteList()
         self.basket_list = arcade.SpriteList()
 
-        # Score
+        # Score variable
         self.score = 0
 
-        # State of picking
+        # Variable represents if player is holding an apple
         self.picked_up_state = False
 
         # Set up the player
@@ -180,8 +210,18 @@ class TestPointerApple(arcade.View):
 
     def on_update(self, delta_time: float):
         """ Movement and game logic """
+
+        if self.counter == 10:
+            # self.recording.append([self.vel_x, self.vel_y])
+            print([self.vel_x, self.vel_y])
+            self.counter = 0
+
+        self.counter += 1
         self.move_pointer()
         self.basket_list.update()
+
+        self.recording.append(self.move_pointer)
+
         apple_collision_list = arcade.check_for_collision_with_list(self.player_sprite,
                                                                     self.apple_list)
         basket_collision_list = arcade.check_for_collision_with_list(self.player_sprite,
@@ -201,6 +241,10 @@ class TestPointerApple(arcade.View):
                 self.score += 1
                 self.player_sprite.alpha = 0
                 self.picked_up_state = False
+
+        if self.score == APPLE_COUNT:
+            game_over_view = AppleMinigameOverView()
+            self.window.show_view(game_over_view)
 
     def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
         self.vel_x = x
@@ -222,14 +266,44 @@ class TestPointerApple(arcade.View):
         arcade.exit()
 
 
+class AppleMinigameOverView(arcade.View):
+    def __init__(self):
+        super().__init__()
+        self.time_taken = 0
+
+    def on_show_view(self):
+        arcade.set_background_color(arcade.color.BLACK)
+
+    def on_draw(self):
+        self.clear()
+        """
+        Draw "Game over" across the screen.
+        """
+        arcade.draw_text("Game Over", 500, 500, arcade.color.WHITE, 54)
+        arcade.draw_text("Click to restart", 500, 400, arcade.color.WHITE, 24)
+
+        # time_taken_formatted = f"{round(self.time_taken, 2)} seconds"
+        # arcade.draw_text(f"Time taken: {time_taken_formatted}",
+        #                  WIDTH / 2,
+        #                  200,
+        #                  arcade.color.GRAY,
+        #                  font_size=15,
+        #                  anchor_x="center")
+
+        # output_total = f"Total Score: {self.window.total_score}"
+        # arcade.draw_text(output_total, 10, 10, arcade.color.WHITE, 14)
+
+    def on_mouse_press(self, x: int, y: int, button: int, modifiers: int):
+        game_view = AppleMinigame()
+        game_view.setup()
+        self.window.show_view(game_view)
+
+
 class GameWindow(arcade.Window):
     def __init__(self):
         super().__init__(title="EyeFit",
                          resizable=False,
                          fullscreen=True)
-
-        # Don't show the mouse cursor
-        # self.set_mouse_visible(False)
 
     def on_key_press(self, symbol: int, modifiers: int):
         if symbol == arcade.key.ESCAPE:
@@ -239,9 +313,8 @@ class GameWindow(arcade.Window):
 def main():
     """ Main function """
     window = GameWindow()
-    view = TestPointerApple()
-    view.setup()
-    window.set_mouse_visible(False)
+    view = AppleInstruction()
+    window.set_mouse_visible(True)
     window.show_view(view)
     arcade.run()
 
