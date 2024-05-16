@@ -241,6 +241,7 @@ def main():
     window = GameWindow()
     view = TestPointerApple()
     view.setup()
+    window.set_mouse_visible(False)
     window.show_view(view)
     arcade.run()
 
