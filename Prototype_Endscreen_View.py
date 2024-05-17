@@ -1,18 +1,24 @@
-"""
-Section Example 1:
-
-In this Section example we divide the screen in two sections and let the user
-pick a box depending on the selected Section
-
-Note:
-    - How View know nothing of what's happening inside the sections.
-      Each section knows what to do.
-    - Each event mouse input is handled by each Section even if the class
-      it's the same (ScreenPart).
-    - How on_mouse_enter/leave triggers in each Section when the mouse
-      enter or leaves the section boundaries
-"""
 import arcade
+import random
+
+COLOR_1 = arcade.color_from_hex_string('#2A1459')
+COLOR_2 = arcade.color_from_hex_string('#4B89BF')
+SCREEN_TITLE = "Drawing With Loops Example"
+x_y_list = []
+
+
+def draw_line(start_x, start_y, end_x, end_y):
+    arcade.draw_line(start_x, start_y, end_x, end_y, arcade.color.BLACK, 6)
+
+
+def draw_point(start_x, start_y):
+    arcade.draw_circle_filled(start_x, start_y, 30, arcade.color.SMOKE)
+    arcade.draw_circle_outline(start_x, start_y, 30, arcade.color.DARK_SLATE_GRAY, 5)
+
+
+def draw_number(start_x, start_y, index):
+    arcade.draw_text(f"{index}", start_x, start_y, arcade.color.BLACK,
+                     16, anchor_x="center", anchor_y="center", bold=True)
 
 
 class Record(arcade.Section):
@@ -21,20 +27,36 @@ class Record(arcade.Section):
     boundaries (left, bottom, etc.)
     """
 
-    def __init__(self, left: int, bottom: int, width: int, height: int,
-                 **kwargs):
+    def __init__(self, left: int, bottom: int, width: int, height: int, **kwargs):
         super().__init__(left, bottom, width, height, **kwargs)
-
+        self.FONT_SIZE = 16
         self.selected: bool = False  # if this section is selected
+        self.x_offset, self.y_offset = self.get_xy_screen_relative(0, 0)
 
     def on_draw(self):
         """ Draw this section """
 
         # Section is selected when mouse is within its boundaries
         arcade.draw_lrtb_rectangle_filled(self.left, self.right, self.top,
-                                          self.bottom, arcade.color.GRAY)
-        arcade.draw_text(f'{self.name}', self.left,
-                         self.top - 50, arcade.color.BLACK, 16)
+                                          self.bottom, arcade.color.WHITE_SMOKE)
+        arcade.draw_lrtb_rectangle_outline(self.left, self.right, self.top,
+                                           self.bottom, arcade.color.DARK_SLATE_GRAY, 5)
+        arcade.draw_text(f'{self.name}', self.left + self.FONT_SIZE,
+                         self.top - self.FONT_SIZE * 2, arcade.color.BLACK, self.FONT_SIZE)
+
+        # x_offset, y_offset = self.get_xy_screen_relative(0, 0)
+
+        for index in range(x_y_list.__len__()):
+            if index == x_y_list.__len__() - 1:
+                start_x, start_y = x_y_list[index][0] + self.x_offset, x_y_list[index][1] + self.y_offset
+                draw_point(start_x, start_y)
+                draw_number(start_x, start_y, index)
+            else:
+                start_x, start_y = x_y_list[index][0] + self.x_offset, x_y_list[index][1] + self.y_offset
+                end_x, end_y = x_y_list[index + 1][0] + self.x_offset, x_y_list[index + 1][1] + self.y_offset
+                draw_line(start_x, start_y, end_x, end_y)
+                draw_point(start_x, start_y)
+                draw_number(start_x, start_y, index)
 
 
 class GameView(arcade.View):
@@ -42,11 +64,26 @@ class GameView(arcade.View):
     def __init__(self):
         super().__init__()
 
-        # add sections to the view
+        # Screensize variables
+        self.WIDTH = arcade.get_viewport()[1]
+        self.HEIGHT = arcade.get_viewport()[3]
+        self.RECORD_LEFT = int(self.WIDTH * 0.5)
+        self.RECORD_BOTTOM = int(self.HEIGHT * 0.5)
+        self.RECORD_WIDTH = int(self.WIDTH * 0.5)
+        self.RECORD_HEIGHT = int(self.HEIGHT * 0.5)
+        self.RECORD_OFFSET = int(self.WIDTH * 0.1)
 
-        # 1) First section holds half of the screen
-        self.add_section(Record(300, 300, 200,
-                                200, name='Recording Container'))
+        # The Record section holds the Recording view
+        self.add_section(Record(self.RECORD_LEFT - self.RECORD_OFFSET,
+                                self.RECORD_BOTTOM - self.RECORD_OFFSET,
+                                self.RECORD_WIDTH,
+                                self.RECORD_HEIGHT,
+                                name='Recording Container'))
+
+    @staticmethod
+    def new_button(color):
+        # helper to create new buttons
+        return arcade.SpriteSolidColor(100, 50, color)
 
     def on_draw(self):
         # clear the screen
@@ -55,7 +92,15 @@ class GameView(arcade.View):
 
 def main():
     # create the window
-    window = arcade.Window(height=600, width=600)
+    window = arcade.Window(fullscreen=True)
+
+    screen_width = int(arcade.get_viewport()[1])
+    screen_height = int(arcade.get_viewport()[3])
+
+    for each in range(10):
+        x = random.randrange(screen_width)
+        y = random.randrange(screen_height)
+        x_y_list.append((x / 2, y / 2))
 
     # create the custom View. Sections are initialized inside the GameView init
     view = GameView()
