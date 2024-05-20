@@ -100,7 +100,7 @@ class ScreenPart(arcade.Section):
         # unselect this section
         self.selected = False
 
-        # if we are holding this section box and we leave the section
+        # if we are holding this section box, and we leave the section
         # we release the box as if we release the mouse button
         if self.hold_box:
             self.hold_box.release()

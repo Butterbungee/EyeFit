@@ -10,22 +10,24 @@ BASKET_SPEED = 10
 SPEED_INCREMENT = 2
 OFFSET = 100
 RECORDING = []
-RECORDING_SAMPLING = 5                             # Recording every x viewport updates
+RECORDING_SAMPLING = 6  # Recording every x viewport updates
 COLOR_1 = arcade.color_from_hex_string('#2A1459')
 COLOR_2 = arcade.color_from_hex_string('#4B89BF')
 
 
-def draw_line(start_x, start_y, end_x, end_y):
-    arcade.draw_line(start_x, start_y, end_x, end_y, arcade.color.BLACK, 6)
+def draw_line(start_x, start_y, end_x, end_y, opacity):
+    arcade.draw_line(start_x, start_y, end_x, end_y, arcade.make_transparent_color(arcade.color.BLACK, opacity),
+                     6)
 
 
-def draw_point(start_x, start_y):
-    arcade.draw_circle_filled(start_x, start_y, 30, arcade.color.SMOKE)
-    arcade.draw_circle_outline(start_x, start_y, 30, arcade.color.DARK_SLATE_GRAY, 5)
+def draw_point(start_x, start_y, opacity):
+    arcade.draw_circle_filled(start_x, start_y, 30, arcade.make_transparent_color(arcade.color.SMOKE, opacity))
+    arcade.draw_circle_outline(start_x, start_y, 30, arcade.make_transparent_color(arcade.color.DARK_SLATE_GRAY,
+                                                                                   opacity), 5)
 
 
-def draw_number(start_x, start_y, index):
-    arcade.draw_text(f"{index}", start_x, start_y, arcade.color.BLACK,
+def draw_number(start_x, start_y, index, opacity):
+    arcade.draw_text(f"{index}", start_x, start_y, arcade.make_transparent_color(arcade.color.BLACK, opacity),
                      16, anchor_x="center", anchor_y="center", bold=True)
 
 
@@ -40,6 +42,12 @@ class Record(arcade.Section):
         self.FONT_SIZE = 16
         self.selected: bool = False  # if this section is selected
         self.x_offset, self.y_offset = self.get_xy_screen_relative(0, 0)
+        self.line_counter = 0
+        self.circle_counter = 0
+        self.number_counter = 1
+        self.opacity_float = .0
+        self.opacity_increment = 255 / RECORDING.__len__()
+        self.opacity = 1
 
     def on_draw(self):
         """ Draw this section """
@@ -53,16 +61,30 @@ class Record(arcade.Section):
                          self.top - self.FONT_SIZE * 2, arcade.color.BLACK, self.FONT_SIZE)
 
         for index in range(RECORDING.__len__()):
+            self.opacity = int(self.opacity_float)
             if index == RECORDING.__len__() - 1:
                 start_x, start_y = RECORDING[index][0] + self.x_offset, RECORDING[index][1] + self.y_offset
-                draw_point(start_x, start_y)
-                draw_number(start_x, start_y, index)
+                draw_point(start_x, start_y, 255)
+                draw_number(start_x, start_y, self.number_counter, 255)
+
             else:
                 start_x, start_y = RECORDING[index][0] + self.x_offset, RECORDING[index][1] + self.y_offset
                 end_x, end_y = RECORDING[index + 1][0] + self.x_offset, RECORDING[index + 1][1] + self.y_offset
-                draw_line(start_x, start_y, end_x, end_y)
-                draw_point(start_x, start_y)
-                draw_number(start_x, start_y, index)
+                if self.line_counter == index:
+                    draw_line(start_x, start_y, end_x, end_y, self.opacity)
+                    self.line_counter += 1
+                if self.circle_counter == index:
+                    draw_point(start_x, start_y, self.opacity)
+                    draw_number(start_x, start_y, self.number_counter, self.opacity)
+                    self.circle_counter += 1
+                    self.number_counter += 1
+            self.opacity_float += self.opacity_increment
+
+        self.line_counter = 0
+        self.circle_counter = 0
+        self.number_counter = 1
+        self.opacity_float = .0
+        self.opacity = 1
 
 
 class Basket(arcade.Sprite):
@@ -309,7 +331,7 @@ class AppleMinigame(arcade.View):
             self.pointer_y += y_dist * .4
             self.player_sprite.center_x += x_dist * .4
             self.player_sprite.center_y += y_dist * .4
-        return int(self.player_sprite.center_x*0.5), int(self.player_sprite.center_y*0.5)
+        return int(self.player_sprite.center_x * 0.5), int(self.player_sprite.center_y * 0.5)
 
     def on_key_press(self, symbol: int, modifiers: int):
         arcade.exit()
