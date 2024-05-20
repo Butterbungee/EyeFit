@@ -8,7 +8,7 @@ SPRITE_SCALING_BASKET = 0.2
 APPLE_COUNT = 2
 BASKET_SPEED = 10
 SPEED_INCREMENT = 2
-OFFSET = 100
+OFFSET_MULTIPLIER = 0.1
 RECORDING_SAMPLING = 6  # Recording every x viewport updates
 
 
@@ -30,8 +30,8 @@ def draw_number(start_x, start_y, index, opacity):
 
 class Record(arcade.Section):
     """
-    This represents a part of the View defined by its
-    boundaries (left, bottom, etc.)
+    A Section represents a part of the View defined by its
+    boundaries (left, bottom, etc.), Record Section acts as a container that contains the path of the players Gaze
     """
 
     def __init__(self, left: int, bottom: int, width: int, height: int, **kwargs):
@@ -164,7 +164,7 @@ class AppleInstruction(arcade.View):
         self.HEIGHT = arcade.get_viewport()[3]
 
     def on_show_view(self):
-        arcade.set_background_color(arcade.color.ORANGE_PEEL)
+        arcade.set_background_color(arcade.color.PASTEL_ORANGE)
 
     def on_draw(self):
         self.clear()
@@ -190,6 +190,7 @@ class AppleMinigame(arcade.View):
 
         self.WIDTH = arcade.get_viewport()[1]
         self.HEIGHT = arcade.get_viewport()[3]
+        self.OFFSET = int(self.WIDTH * 0.08)
 
         # Timer
         self.total_time = 0.0
@@ -224,7 +225,7 @@ class AppleMinigame(arcade.View):
         self.deadzone_radius = 50
         self.pointer_radius = 50
 
-        arcade.set_background_color(arcade.color.AMAZON)
+        arcade.set_background_color(arcade.color.PASTEL_GREEN)
 
     def setup(self):
         """ Set up the game and initialize the variables. """
@@ -233,6 +234,9 @@ class AppleMinigame(arcade.View):
 
         # clear recording
         GameWindow.recording = []
+
+        # define screen
+        left, right, bottom, top = arcade.get_viewport()
 
         # Timer
         self.total_time = 0.0
@@ -255,11 +259,11 @@ class AppleMinigame(arcade.View):
         self.player_list.append(player)
 
         # List of points the basket will travel too.
-        left, right, bottom, top = arcade.get_viewport()
-        position_list = [[left + OFFSET, bottom + OFFSET],
-                         [right - OFFSET, bottom + OFFSET],
-                         [right - OFFSET, top - OFFSET],
-                         [left + OFFSET, top - OFFSET]]
+
+        position_list = [[left + self.OFFSET, bottom + self.OFFSET],
+                         [right - self.OFFSET, bottom + self.OFFSET],
+                         [right - self.OFFSET, top - self.OFFSET],
+                         [left + self.OFFSET, top - self.OFFSET]]
 
         # Create the basket
         basket = Basket("basket.png",
@@ -280,8 +284,8 @@ class AppleMinigame(arcade.View):
                                   SPRITE_SCALING_APPLE)
             # Position the apple
             width, height = int(arcade.get_viewport()[1]), int(arcade.get_viewport()[3])
-            apple.center_x = random.randrange(OFFSET, (width - OFFSET))
-            apple.center_y = random.randrange(OFFSET, (height - OFFSET))
+            apple.center_x = random.randrange(self.OFFSET, (width - self.OFFSET))
+            apple.center_y = random.randrange(self.OFFSET, (height - self.OFFSET))
 
             # Add the apple to the lists
             self.apple_list.append(apple)
@@ -296,6 +300,12 @@ class AppleMinigame(arcade.View):
         # Timer
         self.timer_text.draw()
 
+        # Put the text on the screen.
+        output = f"Score: {GameWindow.total_score}"
+        arcade.draw_text(text=output, start_x=self.WIDTH / 2, start_y=self.HEIGHT / 2 - self.OFFSET,
+                         color=arcade.color.WHITE, font_size=25,
+                         anchor_x="center", anchor_y="top")
+
         # Draw all sprites
         self.apple_list.draw()
         self.player_list.draw()
@@ -304,14 +314,9 @@ class AppleMinigame(arcade.View):
         arcade.draw_circle_outline(self.pointer_x,
                                    self.pointer_y,
                                    self.pointer_radius,
-                                   arcade.color.ROSE,
-                                   border_width=2,
-                                   num_segments=20)
-
-        # Put the text on the screen.
-        output = f"Score: {GameWindow.total_score}"
-        arcade.draw_text(text=output, start_x=10, start_y=20,
-                         color=arcade.color.WHITE, font_size=14)
+                                   arcade.color.PASTEL_VIOLET,
+                                   border_width=3,
+                                   num_segments=40)
 
     def on_update(self, delta_time: float):
         """ Movement and game logic """
@@ -327,6 +332,7 @@ class AppleMinigame(arcade.View):
 
         # Use string formatting to create a new text string for our timer
         self.timer_text.text = f"{minutes:02d}:{seconds:02d}"
+        GameWindow.time_elapsed = self.timer_text.text
 
         if self.counter == RECORDING_SAMPLING:
             GameWindow.recording.append(self.move_pointer())
@@ -394,7 +400,7 @@ class AppleMinigameOverView(arcade.View):
         self.RECORD_BOTTOM = int(self.HEIGHT * 0.5)
         self.RECORD_WIDTH = int(self.WIDTH * 0.5)
         self.RECORD_HEIGHT = int(self.HEIGHT * 0.5)
-        self.RECORD_OFFSET = int(self.WIDTH * 0.1)
+        self.RECORD_OFFSET = int(self.WIDTH * OFFSET_MULTIPLIER)
         self.BUTTON_WIDTH = int(self.RECORD_WIDTH / 3)
         self.BUTTON_HEIGHT = int(self.RECORD_HEIGHT / 3)
 
@@ -408,7 +414,7 @@ class AppleMinigameOverView(arcade.View):
         # add play again button
         self.button_again = self.new_button(self.BUTTON_WIDTH,
                                             self.BUTTON_HEIGHT,
-                                            arcade.color.AQUAMARINE)
+                                            arcade.color.PASTEL_GREEN)
 
         self.button_again.position = (self.WIDTH * 5 / 8 - self.RECORD_OFFSET,
                                       self.RECORD_BOTTOM - self.RECORD_OFFSET * 2)
@@ -416,7 +422,7 @@ class AppleMinigameOverView(arcade.View):
         # add back to menu button
         self.button_menu = self.new_button(self.BUTTON_WIDTH,
                                            self.BUTTON_HEIGHT,
-                                           arcade.color.AMETHYST)
+                                           arcade.color.PASTEL_YELLOW)
 
         self.button_menu.position = (self.WIDTH * 7 / 8 - self.RECORD_OFFSET,
                                      self.RECORD_BOTTOM - self.RECORD_OFFSET * 2)
@@ -427,35 +433,64 @@ class AppleMinigameOverView(arcade.View):
         button = arcade.SpriteSolidColor(width, height, color)
         return button
 
+    @staticmethod
+    def travel(coord_list: list):
+        total = 0
+        for index in range(coord_list.__len__()):
+            if index+1 not in range(coord_list.__len__()):
+                return total
+            x1 = coord_list[index][0]
+            y1 = coord_list[index][1]
+            x2 = coord_list[index + 1][0]
+            y2 = coord_list[index + 1][1]
+            total += int(((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5)
+
     def draw_button_again(self):
-        arcade.draw_text('Play again', self.RECORD_LEFT,
-                         self.RECORD_BOTTOM, arcade.color.LIGHT_CRIMSON, 10)
         self.button_again.draw()
+        arcade.draw_text('Play again', self.WIDTH * 5 / 8 - self.RECORD_OFFSET,
+                         self.RECORD_BOTTOM - self.RECORD_OFFSET * 2,
+                         arcade.color.BLACK, 30, bold=True, anchor_x="center", anchor_y="center")
 
     def draw_button_menu(self):
-        arcade.draw_text('Back to menu', self.RECORD_LEFT,
-                         self.RECORD_BOTTOM, arcade.color.LIGHT_CRIMSON, 10)
         self.button_menu.draw()
+        arcade.draw_text('Back to menu', self.WIDTH * 7 / 8 - self.RECORD_OFFSET,
+                         self.RECORD_BOTTOM - self.RECORD_OFFSET * 2,
+                         arcade.color.BLACK, 30, bold=True, anchor_x="center", anchor_y="center")
 
     def on_draw(self):
         # clear the screen
-        self.clear(arcade.color.BEAU_BLUE)
+        self.clear(arcade.color.PASTEL_BLUE)
 
-        # draw score
+        # draw Title
+        arcade.draw_text("You Finished!", 60, 20, arcade.color.WHITE, 20)
+
+        # draw Score
         output_total = f"Total Score: {self.window.total_score}"
-        arcade.draw_text(output_total, 10, 10, arcade.color.WHITE, 14)
+        arcade.draw_text(output_total, 10, 40, arcade.color.WHITE, 20)
+
+        # draw Time
+        output_time = f"Time taken: {GameWindow.time_elapsed}"
+        arcade.draw_text(output_time, 20, 60, arcade.color.WHITE, 20)
+
+        # draw Pixels Traveled
+        output_pixels = f"Pixels Traveled: {self.travel(GameWindow.recording)}"
+        arcade.draw_text(output_pixels, 30, 80, arcade.color.WHITE, 20)
+
+        # draw buttons
         self.draw_button_again()
         self.draw_button_menu()
 
     def on_mouse_press(self, x: int, y: int, button: int, modifiers: int):
-        print("mouse pressed")
-        if button == 1:
-            print("left mouse pressed")
-            if self.button_again.collides_with_point((x, y)):
-                print("here")
 
+        if button == 1:
+
+            if self.button_again.collides_with_point((x, y)):
                 game_view = AppleMinigame()
                 game_view.setup()
+                self.window.show_view(game_view)
+
+            if self.button_menu.collides_with_point((x, y)):
+                game_view = AppleInstruction()
                 self.window.show_view(game_view)
 
     def on_key_press(self, symbol: int, modifiers: int):
@@ -472,6 +507,7 @@ class GameWindow(arcade.Window):
                          fullscreen=True)
         GameWindow.total_score = 0
         GameWindow.recording = []
+        GameWindow.time_elapsed = ""
 
     def on_key_press(self, symbol: int, modifiers: int):
         if symbol == arcade.key.ESCAPE:

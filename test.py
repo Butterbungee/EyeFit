@@ -99,9 +99,15 @@ class MyGame(arcade.Window):
 
 
 def main():
-    window = MyGame(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
-    window.start_snowfall()
-    arcade.run()
+    x1 = -4
+    y1 = -3
+    x2 = 4
+    y2 = 3
+    print(int(((x1 - x2)**2 + (y1 - y2)**2)**0.5))
+
+    # window = MyGame(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
+    # window.start_snowfall()
+    # arcade.run()
 
 
 if __name__ == "__main__":
