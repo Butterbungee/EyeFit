@@ -57,6 +57,10 @@ class Record(arcade.Section):
         arcade.draw_text(f'{self.name}', self.left + self.FONT_SIZE,
                          self.top - self.FONT_SIZE * 2, arcade.color.BLACK, self.FONT_SIZE)
 
+        if GameWindow.recording[0] == (0, 0):
+            GameWindow.recording.pop(0)
+        else:
+            pass
         for index in range(GameWindow.recording.__len__()):
             self.opacity = int(self.opacity_float)
             if index == GameWindow.recording.__len__() - 1:
@@ -462,19 +466,23 @@ class AppleMinigameOverView(arcade.View):
         self.clear(arcade.color.PASTEL_BLUE)
 
         # draw Title
-        arcade.draw_text("You Finished!", 60, 20, arcade.color.WHITE, 20)
+        arcade.draw_text("You Finished!", 200, self.HEIGHT-self.RECORD_OFFSET, arcade.color.WHITE, 40,
+                         anchor_x="left", anchor_y="top")
 
         # draw Score
         output_total = f"Total Score: {self.window.total_score}"
-        arcade.draw_text(output_total, 10, 40, arcade.color.WHITE, 20)
+        arcade.draw_text(output_total, 30, self.HEIGHT-self.RECORD_OFFSET-100, arcade.color.WHITE, 40,
+                         anchor_x="left", anchor_y="top")
 
         # draw Time
         output_time = f"Time taken: {GameWindow.time_elapsed}"
-        arcade.draw_text(output_time, 20, 60, arcade.color.WHITE, 20)
+        arcade.draw_text(output_time, 30, self.HEIGHT-self.RECORD_OFFSET-150, arcade.color.WHITE, 40,
+                         anchor_x="left", anchor_y="top")
 
         # draw Pixels Traveled
         output_pixels = f"Pixels Traveled: {self.travel(GameWindow.recording)}"
-        arcade.draw_text(output_pixels, 30, 80, arcade.color.WHITE, 20)
+        arcade.draw_text(output_pixels, 30, self.HEIGHT-self.RECORD_OFFSET-200, arcade.color.WHITE, 40,
+                         anchor_x="left", anchor_y="top")
 
         # draw buttons
         self.draw_button_again()
