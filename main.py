@@ -1,6 +1,7 @@
 import arcade
 import random
 import math
+import arcade.gui
 
 SCREEN_TITLE = "Apple Collecting Game"
 SPRITE_SCALING_APPLE = 0.1
@@ -160,6 +161,66 @@ class Basket(arcade.Sprite):
                     self.cur_position = len(self.position_list) - 1
 
 
+class MenuView(arcade.View):
+
+    def __init__(self):
+        super().__init__()
+
+        # --- Required for all code that uses UI element,
+        # a UIManager to handle the UI.
+        self.manager = arcade.gui.UIManager()
+        self.manager.enable()
+
+        # Set background color
+        arcade.set_background_color(arcade.color.DARK_BLUE_GRAY)
+
+        # Create a vertical BoxGroup to align buttons
+        self.v_box = arcade.gui.UIBoxLayout()
+
+        # Create the buttons
+        start_button = arcade.gui.UIFlatButton(text="Start Game", width=200)
+        self.v_box.add(start_button.with_space_around(bottom=20))
+
+        settings_button = arcade.gui.UIFlatButton(text="Settings", width=200)
+        self.v_box.add(settings_button.with_space_around(bottom=20))
+
+        quit_button = arcade.gui.UIFlatButton(text="Quit", width=200)
+        self.v_box.add(quit_button.with_space_around(bottom=20))
+
+        # Method for handling click events,
+        # Using a decorator to handle on_click events
+        @start_button.event("on_click")
+        def on_click_start(event):
+            print("Start from decorator:", event)
+            view = AppleInstruction()
+            self.window.show_view(view)
+
+        @settings_button.event("on_click")
+        def on_click_start(event):
+            print("Settings?:", event)
+            print("modal window(section)")
+
+        @quit_button.event("on_click")
+        def on_click_start(event):
+            print("Quit:", event)
+            arcade.exit()
+
+        # Create a widget to hold the v_box widget, that will center the buttons
+        self.manager.add(
+            arcade.gui.UIAnchorWidget(
+                anchor_x="center_x",
+                anchor_y="center_y",
+                child=self.v_box)
+        )
+
+    def on_draw(self):
+        self.clear()
+        self.manager.draw()
+
+    def on_mouse_press(self, _x, _y, _button, _modifiers):
+        pass
+
+
 class AppleInstruction(arcade.View):
     def __init__(self):
         super().__init__()
@@ -223,8 +284,8 @@ class AppleMinigame(arcade.View):
         self.pointer_x = 0
         self.pointer_y = 0
 
-        self.vel_x = 0
-        self.vel_y = 0
+        self.mouse_x = 0
+        self.mouse_y = 0
 
         self.deadzone_radius = 50
         self.pointer_radius = 50
@@ -371,12 +432,12 @@ class AppleMinigame(arcade.View):
             self.window.show_view(game_over_view)
 
     def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
-        self.vel_x = x
-        self.vel_y = y
+        self.mouse_x = x
+        self.mouse_y = y
 
     def move_pointer(self):
-        x_dist = self.vel_x - self.pointer_x
-        y_dist = self.vel_y - self.pointer_y
+        x_dist = self.mouse_x - self.pointer_x
+        y_dist = self.mouse_y - self.pointer_y
 
         distance = (x_dist ** 2 + y_dist ** 2) ** 0.5
 
@@ -441,13 +502,18 @@ class AppleMinigameOverView(arcade.View):
     def travel(coord_list: list):
         total = 0
         for index in range(coord_list.__len__()):
-            if index+1 not in range(coord_list.__len__()):
+            if index + 1 not in range(coord_list.__len__()):
                 return total
             x1 = coord_list[index][0]
             y1 = coord_list[index][1]
             x2 = coord_list[index + 1][0]
             y2 = coord_list[index + 1][1]
             total += int(((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5)
+
+    @staticmethod
+    def draw_text(text, x, y, font_size, width):
+        return arcade.draw_text(text, x, y, arcade.color.BLACK, font_size, width,
+                                "center", anchor_x="left", anchor_y="top", italic=True, bold=True)
 
     def draw_button_again(self):
         self.button_again.draw()
@@ -464,25 +530,24 @@ class AppleMinigameOverView(arcade.View):
     def on_draw(self):
         # clear the screen
         self.clear(arcade.color.PASTEL_BLUE)
+        font_size = int(self.RECORD_OFFSET / 2)
 
-        # draw Title
-        arcade.draw_text("You Finished!", 200, self.HEIGHT-self.RECORD_OFFSET, arcade.color.WHITE, 40,
-                         anchor_x="left", anchor_y="top")
+        self.draw_text("You Finished!", 0, self.HEIGHT - self.RECORD_OFFSET * 0.1, font_size, self.WIDTH)
 
         # draw Score
         output_total = f"Total Score: {self.window.total_score}"
-        arcade.draw_text(output_total, 30, self.HEIGHT-self.RECORD_OFFSET-100, arcade.color.WHITE, 40,
-                         anchor_x="left", anchor_y="top")
+        self.draw_text(output_total, 0, self.HEIGHT - self.RECORD_OFFSET * 1.2, font_size / 2,
+                       self.RECORD_WIDTH - self.RECORD_OFFSET)
 
         # draw Time
         output_time = f"Time taken: {GameWindow.time_elapsed}"
-        arcade.draw_text(output_time, 30, self.HEIGHT-self.RECORD_OFFSET-150, arcade.color.WHITE, 40,
-                         anchor_x="left", anchor_y="top")
+        self.draw_text(output_time, 0, self.HEIGHT - self.RECORD_OFFSET * 2.2, font_size / 2,
+                       self.RECORD_WIDTH - self.RECORD_OFFSET)
 
         # draw Pixels Traveled
         output_pixels = f"Pixels Traveled: {self.travel(GameWindow.recording)}"
-        arcade.draw_text(output_pixels, 30, self.HEIGHT-self.RECORD_OFFSET-200, arcade.color.WHITE, 40,
-                         anchor_x="left", anchor_y="top")
+        self.draw_text(output_pixels, 0, self.HEIGHT - self.RECORD_OFFSET * 3.2, font_size / 2,
+                       self.RECORD_WIDTH - self.RECORD_OFFSET)
 
         # draw buttons
         self.draw_button_again()
@@ -498,7 +563,7 @@ class AppleMinigameOverView(arcade.View):
                 self.window.show_view(game_view)
 
             if self.button_menu.collides_with_point((x, y)):
-                game_view = AppleInstruction()
+                game_view = MenuView()
                 self.window.show_view(game_view)
 
     def on_key_press(self, symbol: int, modifiers: int):
@@ -525,7 +590,7 @@ class GameWindow(arcade.Window):
 def main():
     """ Main function """
     window = GameWindow()
-    view = AppleInstruction()
+    view = MenuView()
     window.set_mouse_visible(True)
     window.show_view(view)
     arcade.run()

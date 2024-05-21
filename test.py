@@ -39,7 +39,7 @@ class MyGame(arcade.Window):
 
     def __init__(self, width, height, title):
         """ Initializer """
-        # Calls "__init__" of parent class (arcade.Window) to setup screen
+        # Calls "__init__" of parent class (arcade.Window) to set up screen
         super().__init__(width, height, title)
 
         # Sprite lists
