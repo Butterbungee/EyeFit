@@ -1,6 +1,7 @@
-import arcade
-import random
 import math
+import random
+
+import arcade
 import arcade.gui
 
 SCREEN_TITLE = "Apple Collecting Game"
@@ -96,6 +97,45 @@ class Record(arcade.Section):
             arcade.exit()
 
 
+class ModalSection(arcade.Section):
+    """ A modal section that represents a popup that waits for user input """
+
+    def __init__(self, left: int, bottom: int, width: int, height: int):
+        super().__init__(left, bottom, width, height, modal=True, enabled=False)
+
+        # modal button
+        self.button = arcade.SpriteSolidColor(100, 50, arcade.color.RED)
+        pos = self.left + self.width / 2, self.bottom + self.height / 2
+        self.button.position = pos
+
+    def on_draw(self):
+        # draw modal frame and button
+        arcade.draw_lrtb_rectangle_filled(self.left, self.right, self.top,
+                                          self.bottom, arcade.color.GRAY)
+        arcade.draw_lrtb_rectangle_outline(self.left, self.right, self.top,
+                                           self.bottom, arcade.color.WHITE)
+        self.draw_button()
+
+    def draw_button(self):
+        # draws the button and button text
+        self.button.draw()
+        arcade.draw_text('Close Modal', self.button.left + 5,
+                         self.button.bottom + self.button.height / 2,
+                         arcade.color.WHITE)
+
+    def on_resize(self, width: int, height: int):
+        """ set position on screen resize """
+        self.left = width // 3
+        self.bottom = (height // 2) - self.height // 2
+        pos = self.left + self.width / 2, self.bottom + self.height / 2
+        self.button.position = pos
+
+    def on_mouse_press(self, x: float, y: float, button: int, modifiers: int):
+        """ Check if the button is pressed """
+        if self.button.collides_with_point((x, y)):
+            self.enabled = False
+
+
 class Basket(arcade.Sprite):
     """
     This class represents the Basket on our screen.
@@ -178,32 +218,17 @@ class MenuView(arcade.View):
         self.v_box = arcade.gui.UIBoxLayout()
 
         # Create the buttons
-        start_button = arcade.gui.UIFlatButton(text="Start Game", width=200)
-        self.v_box.add(start_button.with_space_around(bottom=20))
+        self.start_button = arcade.gui.UIFlatButton(text="Start Game", width=200)
+        self.v_box.add(self.start_button.with_space_around(bottom=20))
 
-        settings_button = arcade.gui.UIFlatButton(text="Settings", width=200)
-        self.v_box.add(settings_button.with_space_around(bottom=20))
+        self.settings_button = arcade.gui.UIFlatButton(text="Settings", width=200)
+        self.v_box.add(self.settings_button.with_space_around(bottom=20))
 
-        quit_button = arcade.gui.UIFlatButton(text="Quit", width=200)
-        self.v_box.add(quit_button.with_space_around(bottom=20))
+        self.quit_button = arcade.gui.UIFlatButton(text="Quit", width=200)
+        self.v_box.add(self.quit_button.with_space_around(bottom=20))
 
         # Method for handling click events,
         # Using a decorator to handle on_click events
-        @start_button.event("on_click")
-        def on_click_start(event):
-            print("Start from decorator:", event)
-            view = AppleInstruction()
-            self.window.show_view(view)
-
-        @settings_button.event("on_click")
-        def on_click_start(event):
-            print("Settings?:", event)
-            print("modal window(section)")
-
-        @quit_button.event("on_click")
-        def on_click_start(event):
-            print("Quit:", event)
-            arcade.exit()
 
         # Create a widget to hold the v_box widget, that will center the buttons
         self.manager.add(
@@ -218,7 +243,25 @@ class MenuView(arcade.View):
         self.manager.draw()
 
     def on_mouse_press(self, _x, _y, _button, _modifiers):
-        pass
+        @self.start_button.event("on_click")
+        def on_click_start(event):
+            if self.window.current_view == self:
+                print("Start:", event)
+                view = AppleInstruction()
+                self.window.show_view(view)
+
+        @self.settings_button.event("on_click")
+        def on_click_settings(event):
+            if self.window.current_view == self:
+                print("Settings:", event)
+
+                print("modal window(section)")
+
+        @self.quit_button.event("on_click")
+        def on_click_quit(event):
+            if self.window.current_view == self:
+                print("Quit:", event)
+                arcade.exit()
 
 
 class AppleInstruction(arcade.View):
@@ -257,6 +300,10 @@ class AppleMinigame(arcade.View):
         self.HEIGHT = arcade.get_viewport()[3]
         self.OFFSET = int(self.WIDTH * 0.08)
 
+        self.modal_section = ModalSection(int(self.WIDTH / 3),
+                                          int(self.HEIGHT / 2) - 100,
+                                          400, 200)
+
         # Timer
         self.total_time = 0.0
         self.timer_text = arcade.Text(
@@ -289,6 +336,8 @@ class AppleMinigame(arcade.View):
 
         self.deadzone_radius = 50
         self.pointer_radius = 50
+
+        self.section_manager.add_section(self.modal_section)
 
         arcade.set_background_color(arcade.color.PASTEL_GREEN)
 
@@ -385,51 +434,53 @@ class AppleMinigame(arcade.View):
 
     def on_update(self, delta_time: float):
         """ Movement and game logic """
+        if self.paused():
+            pass
+        else:
+            # Timer
+            self.total_time += delta_time
 
-        # Timer
-        self.total_time += delta_time
+            # Calculate minutes
+            minutes = int(self.total_time) // 60
 
-        # Calculate minutes
-        minutes = int(self.total_time) // 60
+            # Calculate seconds by using a modulus
+            seconds = int(self.total_time) % 60
 
-        # Calculate seconds by using a modulus
-        seconds = int(self.total_time) % 60
+            # Use string formatting to create a new text string for our timer
+            self.timer_text.text = f"{minutes:02d}:{seconds:02d}"
+            GameWindow.time_elapsed = self.timer_text.text
 
-        # Use string formatting to create a new text string for our timer
-        self.timer_text.text = f"{minutes:02d}:{seconds:02d}"
-        GameWindow.time_elapsed = self.timer_text.text
+            if self.counter == RECORDING_SAMPLING:
+                GameWindow.recording.append(self.move_pointer())
+                self.counter = 0
 
-        if self.counter == RECORDING_SAMPLING:
-            GameWindow.recording.append(self.move_pointer())
-            self.counter = 0
+            self.counter += 1
+            self.move_pointer()
+            self.basket_list.update()
 
-        self.counter += 1
-        self.move_pointer()
-        self.basket_list.update()
+            apple_collision_list = arcade.check_for_collision_with_list(self.player_sprite,
+                                                                        self.apple_list)
+            basket_collision_list = arcade.check_for_collision_with_list(self.player_sprite,
+                                                                         self.basket_list)
 
-        apple_collision_list = arcade.check_for_collision_with_list(self.player_sprite,
-                                                                    self.apple_list)
-        basket_collision_list = arcade.check_for_collision_with_list(self.player_sprite,
-                                                                     self.basket_list)
+            if apple_collision_list and not self.picked_up_state:
+                for apple in apple_collision_list:
+                    apple.remove_from_sprite_lists()
+                    self.picked_up_state = True
+                    self.player_sprite.alpha = 255
 
-        if apple_collision_list and not self.picked_up_state:
-            for apple in apple_collision_list:
-                apple.remove_from_sprite_lists()
-                self.picked_up_state = True
-                self.player_sprite.alpha = 255
+            if basket_collision_list and self.picked_up_state:
+                for _ in basket_collision_list:
+                    if Basket.speed < 20:
+                        Basket.speed += SPEED_INCREMENT
+                    Basket.backwards = not Basket.backwards
+                    GameWindow.total_score += 1
+                    self.player_sprite.alpha = 0
+                    self.picked_up_state = False
 
-        if basket_collision_list and self.picked_up_state:
-            for _ in basket_collision_list:
-                if Basket.speed < 20:
-                    Basket.speed += SPEED_INCREMENT
-                Basket.backwards = not Basket.backwards
-                GameWindow.total_score += 1
-                self.player_sprite.alpha = 0
-                self.picked_up_state = False
-
-        if GameWindow.total_score == APPLE_COUNT:
-            game_over_view = AppleMinigameOverView()
-            self.window.show_view(game_over_view)
+            if GameWindow.total_score == APPLE_COUNT:
+                game_over_view = AppleMinigameOverView()
+                self.window.show_view(game_over_view)
 
     def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
         self.mouse_x = x
@@ -450,7 +501,11 @@ class AppleMinigame(arcade.View):
 
     def on_key_press(self, symbol: int, modifiers: int):
         if symbol == arcade.key.ESCAPE:
-            arcade.exit()
+            self.modal_section.enabled = True
+
+    def paused(self):
+        if self.modal_section.enabled:
+            return True
 
 
 class AppleMinigameOverView(arcade.View):
@@ -582,9 +637,9 @@ class GameWindow(arcade.Window):
         GameWindow.recording = []
         GameWindow.time_elapsed = ""
 
-    def on_key_press(self, symbol: int, modifiers: int):
-        if symbol == arcade.key.ESCAPE:
-            arcade.exit()
+    # def on_key_press(self, symbol: int, modifiers: int):
+    #   if symbol == arcade.key.ESCAPE:
+    #      arcade.exit()
 
 
 def main():
