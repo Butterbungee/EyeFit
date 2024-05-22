@@ -3,6 +3,9 @@ import random
 
 import arcade
 import arcade.gui
+from arcade.experimental.uislider import UISlider
+from arcade.gui import UIManager, UIAnchorWidget, UILabel, UISpace, UIBoxLayout, UIFlatButton, UITextureButton, UIWidget
+from arcade.gui.events import UIOnChangeEvent
 
 SCREEN_TITLE = "Apple Collecting Game"
 SPRITE_SCALING_APPLE = 0.1
@@ -100,40 +103,47 @@ class Record(arcade.Section):
 class ModalSection(arcade.Section):
     """ A modal section that represents a popup that waits for user input """
 
-    def __init__(self, left: int, bottom: int, width: int, height: int):
+    def __init__(self, left: int, bottom: int, width: int, height: int, offset: int):
         super().__init__(left, bottom, width, height, modal=True, enabled=False)
 
         # modal button
-        self.button = arcade.SpriteSolidColor(100, 50, arcade.color.RED)
-        pos = self.left + self.width / 2, self.bottom + self.height / 2
-        self.button.position = pos
+        self.offset = offset
+
+        self.menu_button = arcade.SpriteSolidColor(int(self.width / 2), int(self.height / 4),
+                                                   arcade.color.PASTEL_ORANGE)
+        self.menu_pos = self.left + self.width / 2, self.bottom + self.height / 4
+        self.menu_button.position = self.menu_pos
+
+        self.continue_button = arcade.SpriteSolidColor(int(self.width / 2), int(self.height / 4),
+                                                       arcade.color.PASTEL_GREEN)
+        self.continue_pos = self.left + self.width / 2, self.bottom + (self.height / 4) * 3
+        self.continue_button.position = self.continue_pos
 
     def on_draw(self):
         # draw modal frame and button
         arcade.draw_lrtb_rectangle_filled(self.left, self.right, self.top,
                                           self.bottom, arcade.color.GRAY)
         arcade.draw_lrtb_rectangle_outline(self.left, self.right, self.top,
-                                           self.bottom, arcade.color.WHITE)
+                                           self.bottom, arcade.color.BLACK, int(self.offset * .1))
         self.draw_button()
 
     def draw_button(self):
         # draws the button and button text
-        self.button.draw()
-        arcade.draw_text('Close Modal', self.button.left + 5,
-                         self.button.bottom + self.button.height / 2,
-                         arcade.color.WHITE)
-
-    def on_resize(self, width: int, height: int):
-        """ set position on screen resize """
-        self.left = width // 3
-        self.bottom = (height // 2) - self.height // 2
-        pos = self.left + self.width / 2, self.bottom + self.height / 2
-        self.button.position = pos
+        self.menu_button.draw()
+        self.continue_button.draw()
+        arcade.draw_text('Back to menu', self.menu_pos[0], self.menu_pos[1], arcade.color.BLACK,
+                         italic=True, bold=True, anchor_x="center", anchor_y="center")
+        arcade.draw_text('Continue', self.continue_pos[0], self.continue_pos[1], arcade.color.BLACK,
+                         italic=True, bold=True, anchor_x="center", anchor_y="center")
 
     def on_mouse_press(self, x: float, y: float, button: int, modifiers: int):
         """ Check if the button is pressed """
-        if self.button.collides_with_point((x, y)):
+        if self.continue_button.collides_with_point((x, y)):
             self.enabled = False
+        if self.menu_button.collides_with_point((x, y)):
+            self.enabled = False
+            game_view = MenuView()
+            self.window.show_view(game_view)
 
 
 class Basket(arcade.Sprite):
@@ -208,7 +218,7 @@ class MenuView(arcade.View):
 
         # --- Required for all code that uses UI element,
         # a UIManager to handle the UI.
-        self.manager = arcade.gui.UIManager()
+        self.manager = UIManager()
         self.manager.enable()
 
         # Set background color
@@ -232,7 +242,7 @@ class MenuView(arcade.View):
 
         # Create a widget to hold the v_box widget, that will center the buttons
         self.manager.add(
-            arcade.gui.UIAnchorWidget(
+            UIAnchorWidget(
                 anchor_x="center_x",
                 anchor_y="center_y",
                 child=self.v_box)
@@ -245,23 +255,158 @@ class MenuView(arcade.View):
     def on_mouse_press(self, _x, _y, _button, _modifiers):
         @self.start_button.event("on_click")
         def on_click_start(event):
-            if self.window.current_view == self:
-                print("Start:", event)
-                view = AppleInstruction()
-                self.window.show_view(view)
+            print("Start:", event)
+            view = AppleInstruction()
+            self.window.show_view(view)
 
         @self.settings_button.event("on_click")
         def on_click_settings(event):
-            if self.window.current_view == self:
-                print("Settings:", event)
-
-                print("modal window(section)")
+            print("Settings:", event)
+            game_view = Settings()
+            self.window.show_view(game_view)
 
         @self.quit_button.event("on_click")
         def on_click_quit(event):
-            if self.window.current_view == self:
-                print("Quit:", event)
-                arcade.exit()
+            print("Quit:", event)
+            arcade.exit()
+
+    def on_hide_view(self):
+        self.manager.disable()
+
+
+class Settings(arcade.View):
+
+    def __init__(self):
+        super().__init__()
+
+        # --- Required for all code that uses UI element,
+        # a UIManager to handle the UI.
+        self.manager = UIManager()
+        self.manager.enable()
+
+        # Set background color
+        arcade.set_background_color(arcade.color.DARK_BLUE_GRAY)
+
+        # Create a horizontal BoxGroup to align volume label and slider
+        self.h_volume_box = arcade.gui.UIBoxLayout(vertical=False)
+        # Create volume label, space and slider
+        self.volume_space = UISpace()
+        self.volume_slider = UISlider(value=50, width=300, height=50)
+        self.volume_label = UILabel(text="Sound Volume: "f"{self.volume_slider.value:02.0f}")
+
+        @self.volume_slider.event()
+        def on_change(event: UIOnChangeEvent):
+            self.volume_label.text = "Sound Volume: "f"{self.volume_slider.value:02.0f}"
+            self.volume_label.fit_content()
+
+        # Add widgets to BoxGroup
+        self.h_volume_box.add(self.volume_label)
+        self.h_volume_box.add(self.volume_space)
+        self.h_volume_box.add(self.volume_slider)
+
+        # Create a horizontal BoxGroup to align mode label and textured button
+        self.h_mode_box = UIBoxLayout(vertical=False)
+        # Create mode label, tooltip, space and textured button
+        self.mode_label = UILabel(text="Webcam mode")
+        self.mode_space = UISpace()
+        self.mode_checkbox = UIWidget().with_background(
+            texture=arcade.load_texture("checked.png"))
+
+        @self.mode_checkbox.event()
+        def on_change(event: UIOnChangeEvent):
+            if self.mode_checkbox.text == "X":
+                self.mode_checkbox.text = ""
+            else:
+                self.mode_checkbox.text = "X"
+
+        self.h_mode_box.add(self.mode_label)
+        self.h_mode_box.add(self.mode_space)
+        self.h_mode_box.add(self.mode_checkbox)
+        # Create a vertical BoxGroup to align buttons
+        self.h_button_box = UIBoxLayout(vertical=False)
+        # Create the buttons
+        self.apply_button = UIFlatButton(text="Apply", width=200)
+        self.back_button = UIFlatButton(text="Back", width=200)
+        # add buttons to BoxGroup
+        self.h_button_box.add(self.apply_button.with_space_around(right=20))
+        self.h_button_box.add(self.back_button.with_space_around(left=20))
+
+        self.v_box = UIBoxLayout(vertical=True)
+        self.v_box.add(self.h_volume_box)
+        self.v_box.add(self.h_mode_box)
+        self.v_box.add(self.h_button_box)
+
+        # Create a widget to hold the BoxGroup widgets, that will center the buttons
+        self.manager.add(
+            UIAnchorWidget(anchor_x="center_x", anchor_y="center_y", child=self.v_box)
+        )
+
+    def on_draw(self):
+        self.clear()
+        self.manager.draw()
+
+    def on_mouse_press(self, _x, _y, _button, _modifiers):
+        @self.apply_button.event("on_click")
+        def on_click_start(event):
+            print("Apply:", event)
+            print("do apply stuff")
+            view = MenuView()
+            self.window.show_view(view)
+
+        @self.back_button.event("on_click")
+        def on_click_start(event):
+            print("Back:", event)
+            view = MenuView()
+            self.window.show_view(view)
+
+    def on_hide_view(self):
+        self.manager.disable()
+
+
+class MinigameSelect(arcade.View):
+
+    def __init__(self):
+        super().__init__()
+
+        # --- Required for all code that uses UI element,
+        # a UIManager to handle the UI.
+        self.manager = UIManager()
+        self.manager.enable()
+
+        # Set background color
+        arcade.set_background_color(arcade.color.DARK_BLUE_GRAY)
+
+        # Create a vertical BoxGroup to align buttons
+        self.v_box = UIBoxLayout()
+
+        # Create the buttons
+        self.start_button = UIFlatButton(text="Start Game", width=200)
+        self.v_box.add(self.start_button.with_space_around(bottom=20))
+
+        # Method for handling click events,
+        # Using a decorator to handle on_click events
+
+        # Create a widget to hold the v_box widget, that will center the buttons
+        self.manager.add(
+            UIAnchorWidget(
+                anchor_x="center_x",
+                anchor_y="center_y",
+                child=self.v_box)
+        )
+
+    def on_draw(self):
+        self.clear()
+        self.manager.draw()
+
+    def on_mouse_press(self, _x, _y, _button, _modifiers):
+        @self.start_button.event("on_click")
+        def on_click_start(event):
+            print("Start:", event)
+            view = AppleInstruction()
+            self.window.show_view(view)
+
+    def on_hide_view(self):
+        self.manager.disable()
 
 
 class AppleInstruction(arcade.View):
@@ -300,10 +445,10 @@ class AppleMinigame(arcade.View):
         self.HEIGHT = arcade.get_viewport()[3]
         self.OFFSET = int(self.WIDTH * 0.08)
 
-        self.modal_section = ModalSection(int(self.WIDTH / 3),
-                                          int(self.HEIGHT / 2) - 100,
-                                          400, 200)
-
+        self.modal_section = ModalSection(int(self.WIDTH / 4) + self.OFFSET,
+                                          int(self.HEIGHT / 3) - int(self.OFFSET / 2),
+                                          int(self.WIDTH / 4) + self.OFFSET,
+                                          int(self.HEIGHT / 3) + self.OFFSET, self.OFFSET)
         # Timer
         self.total_time = 0.0
         self.timer_text = arcade.Text(
