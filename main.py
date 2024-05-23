@@ -240,6 +240,9 @@ class MenuView(arcade.View):
 
         }
 
+        self.title_label = UILabel(text="EyeFit", font_size=self.OFFSET, font_name="calibri",
+                                   text_color=arcade.color.BLACK, italic=True, bold=True)
+        self.v_box.add(self.title_label.with_space_around(bottom=self.OFFSET/2))
         # Create the buttons
         self.level_button = arcade.gui.UIFlatButton(text="Select minigame",
                                                     width=self.BUTTON_WIDTH,
@@ -404,6 +407,8 @@ class MinigameSelect(arcade.View):
         self.WIDTH = arcade.get_viewport()[1]
         self.HEIGHT = arcade.get_viewport()[3]
         self.OFFSET = int(self.WIDTH * 0.08)
+        self.BUTTON_WIDTH = self.WIDTH / 6
+        self.BUTTON_HEIGHT = self.HEIGHT / 6
 
         # --- Required for all code that uses UI element,
         # a UIManager to handle the UI.
@@ -418,13 +423,53 @@ class MinigameSelect(arcade.View):
         self.h_row_1 = UIBoxLayout(vertical=False)
         self.h_row_2 = UIBoxLayout(vertical=False)
 
-        # Create the buttons
-        self.back_button = UIFlatButton(text="Back", width=200)
+        self.back_button_style = {
+            "font_name": "calibri",
+            "font_size": self.OFFSET / 3,
+            "font_color": arcade.color.BLACK,
+            "border_color": arcade.color.BLACK,
+            "border_width": 4,
+            "bg_color": arcade.color.PASTEL_YELLOW,
+            "bg_color_pressed": arcade.color.PASTEL_YELLOW,
+            "border_color_pressed": arcade.color.WHITE,
+            "font_color_pressed": arcade.color.WHITE_SMOKE,
 
+        }
+
+        # Create the buttons
+        self.back_button = UIFlatButton(text="Back",
+                                        width=self.BUTTON_WIDTH,
+                                        height=self.BUTTON_HEIGHT,
+                                        style=self.back_button_style
+                                        )
         self.apples_button = self.minigame_button("minigame_apples.png")
         self.placeholder_1 = self.minigame_button("minigame_apples.png")
         self.placeholder_2 = self.minigame_button("minigame_apples.png")
         self.placeholder_3 = self.minigame_button("minigame_apples.png")
+
+        self.title_label = UILabel(text="Apple minigame settings and instructions", font_size=self.OFFSET / 3,
+                                   text_color=arcade.color.BLACK)
+
+        self.h_row_1.add(self.apples_button.with_space_around(10, 10, 10, 10))
+        self.h_row_1.add(self.placeholder_1.with_space_around(10, 10, 10, 10))
+        self.h_row_2.add(self.placeholder_2.with_space_around(10, 10, 10, 10))
+        self.h_row_2.add(self.placeholder_3.with_space_around(10, 10, 10, 10))
+
+        self.v_box.add(self.title_label.with_space_around(bottom=self.OFFSET/3))
+        self.v_box.add(self.h_row_1)
+        self.v_box.add(self.h_row_2)
+        self.v_box.add(self.back_button.with_space_around(top=self.OFFSET/3))
+        # Method for handling click events,
+        # Using a decorator to handle on_click events
+
+        # Create a widget to hold the v_box widget, that will center the buttons
+        self.manager.add(
+            UIAnchorWidget(
+                anchor_x="center_x",
+                anchor_y="center_y",
+                child=self.v_box,
+                size_hint_max=(10, 10))
+        )
 
         @self.back_button.event()
         def on_click(event: UIOnClickEvent):
@@ -456,30 +501,10 @@ class MinigameSelect(arcade.View):
             view = AppleInstruction()
             self.window.show_view(view)
 
-        self.h_row_1.add(self.apples_button.with_space_around(10, 10, 10, 10))
-        self.h_row_1.add(self.placeholder_1.with_space_around(10, 10, 10, 10))
-        self.h_row_2.add(self.placeholder_2.with_space_around(10, 10, 10, 10))
-        self.h_row_2.add(self.placeholder_3.with_space_around(10, 10, 10, 10))
-
-        self.v_box.add(self.h_row_1)
-        self.v_box.add(self.h_row_2)
-        self.v_box.add(self.back_button.with_space_around(bottom=20))
-        # Method for handling click events,
-        # Using a decorator to handle on_click events
-
-        # Create a widget to hold the v_box widget, that will center the buttons
-        self.manager.add(
-            UIAnchorWidget(
-                anchor_x="center_x",
-                anchor_y="center_y",
-                child=self.v_box,
-                size_hint_max=(10, 10))
-        )
-
     def minigame_button(self, texture_name):
         return UITextureButton(texture=arcade.load_texture(texture_name),
-                               height=self.HEIGHT / 3,
-                               width=self.WIDTH / 3)
+                               height=self.HEIGHT*.3,
+                               width=self.WIDTH*.3)
 
     def on_draw(self):
         self.clear()
@@ -496,6 +521,7 @@ class AppleInstruction(arcade.View):
         self.WIDTH = arcade.get_viewport()[1]
         self.HEIGHT = arcade.get_viewport()[3]
         self.OFFSET = int(self.WIDTH * 0.08)
+        print("offset is ", self.OFFSET)
         self.BUTTON_WIDTH = self.WIDTH / 6
         self.BUTTON_HEIGHT = self.HEIGHT / 6
 
@@ -504,22 +530,92 @@ class AppleInstruction(arcade.View):
         self.manager = UIManager()
         self.manager.enable()
 
-        # Create a vertical BoxGroup to align buttons
-        self.h_box = arcade.gui.UIBoxLayout(vertical=False)
+        # Create a vertical BoxGroups to align buttons
+        self.vertical_box = arcade.gui.UIBoxLayout(vertical=True)
+        self.horizontal_box = arcade.gui.UIBoxLayout(vertical=False)
+        self.right_box = arcade.gui.UIBoxLayout(vertical=True)
+        self.left_box = arcade.gui.UIBoxLayout(vertical=True)
+        self.slider_box = arcade.gui.UIBoxLayout(vertical=False)
+        self.background_box = arcade.gui.UIBoxLayout(vertical=False)
+        self.button_box = arcade.gui.UIBoxLayout(vertical=False)
 
         # Create the button style
-        self.button_style = {
+        self.play_button_style = {
             "font_name": "calibri",
-            "font_size": self.OFFSET / 3
+            "font_size": self.OFFSET / 3,
+            "font_color": arcade.color.BLACK,
+            "border_color": arcade.color.BLACK,
+            "border_width": 4,
+            "bg_color": arcade.color.PASTEL_GREEN,
+            "bg_color_pressed": arcade.color.PASTEL_GREEN,
+            "border_color_pressed": arcade.color.WHITE,
+            "font_color_pressed": arcade.color.WHITE_SMOKE,
+
+        }
+        self.back_button_style = {
+            "font_name": "calibri",
+            "font_size": self.OFFSET / 3,
+            "font_color": arcade.color.BLACK,
+            "border_color": arcade.color.BLACK,
+            "border_width": 4,
+            "bg_color": arcade.color.PASTEL_YELLOW,
+            "bg_color_pressed": arcade.color.PASTEL_YELLOW,
+            "border_color_pressed": arcade.color.WHITE,
+            "font_color_pressed": arcade.color.WHITE_SMOKE,
 
         }
 
         # Create the buttons
-        self.back_button = arcade.gui.UIFlatButton(text="Back",
-                                                   width=self.BUTTON_WIDTH,
-                                                   height=self.BUTTON_HEIGHT,
-                                                   style=self.button_style
-                                                   )
+        self.back_button = UIFlatButton(text="Back",
+                                        width=self.BUTTON_WIDTH,
+                                        height=self.BUTTON_HEIGHT,
+                                        style=self.back_button_style
+                                        )
+        self.play_button = UIFlatButton(text="Play",
+                                        width=self.BUTTON_WIDTH,
+                                        height=self.BUTTON_HEIGHT,
+                                        style=self.play_button_style
+                                        )
+        self.gif_button = UIFlatButton(text="Gif",
+                                       width=self.WIDTH / 2,
+                                       height=self.HEIGHT / 2
+                                       )
+        self.apple_slider = UISlider(value=30, min_value=10, max_value=99, width=int(self.WIDTH / 3),
+                                     height=self.OFFSET / 2)
+        self.number = UILabel(text=f"{int(self.apple_slider.value):02.0f}", font_size=self.OFFSET / 3,
+                              text_color=arcade.color.BLACK)
+
+        self.slider_label = UILabel(text="Number of apples", font_size=self.OFFSET / 3, text_color=arcade.color.BLACK)
+        self.cam_background = UITextureButton(texture=arcade.load_texture("apple_cam.png"))
+        self.normal_background = UITextureButton(texture=arcade.load_texture("apple_default.png"))
+        self.background_label = UILabel(text="Background", font_size=self.OFFSET / 3, text_color=arcade.color.BLACK)
+        self.title_label = UILabel(text="Apple minigame settings and instructions", font_size=self.OFFSET / 3,
+                                   text_color=arcade.color.BLACK)
+
+        self.button_box.add(self.play_button.with_space_around(right=self.BUTTON_WIDTH / 4))
+        self.button_box.add(self.back_button.with_space_around(left=self.BUTTON_WIDTH / 4))
+        self.right_box.add(self.gif_button.with_space_around(bottom=self.OFFSET / 2))
+        self.right_box.add(self.button_box)
+        self.slider_box.add(self.apple_slider)
+        self.slider_box.add(self.number)
+        self.background_box.add(self.normal_background)
+        self.background_box.add(self.cam_background)
+        self.left_box.add(self.background_label)
+        self.left_box.add(self.background_box.with_space_around(bottom=self.OFFSET))
+        self.left_box.add(self.slider_label)
+        self.left_box.add(self.slider_box)
+        self.horizontal_box.add(self.left_box.with_space_around(right=self.OFFSET / 4))
+        self.horizontal_box.add(self.right_box.with_space_around(left=self.OFFSET / 4))
+        self.vertical_box.add(self.title_label.with_space_around(bottom=self.OFFSET / 2))
+        self.vertical_box.add(self.horizontal_box)
+
+        # Create a widget to hold the v_box widget, that will center the buttons
+        self.manager.add(
+            UIAnchorWidget(
+                anchor_x="center_x",
+                anchor_y="center_y",
+                child=self.vertical_box)
+        )
 
         # Method for handling click events,
         # Using a decorator to handle on_click events
@@ -529,26 +625,17 @@ class AppleInstruction(arcade.View):
             view = MinigameSelect()
             self.window.show_view(view)
 
-        self.h_box.add(self.back_button.with_space_around(bottom=20))
-
-        # Create a widget to hold the v_box widget, that will center the buttons
-        self.manager.add(
-            UIAnchorWidget(
-                anchor_x="center_x",
-                anchor_y="center_y",
-                child=self.h_box)
-        )
+        @self.apple_slider.event()
+        def on_change(event: UIOnChangeEvent):
+            print("Apple Slider Change:", event)
+            self.number.text = f"{int(self.apple_slider.value):02.0f}"
+            self.number.fit_content()
 
     def on_show_view(self):
         arcade.set_background_color(arcade.color.PASTEL_ORANGE)
 
     def on_draw(self):
         self.clear()
-
-        arcade.draw_text("Instructions Screen", self.WIDTH / 2, self.HEIGHT / 2,
-                         arcade.color.BLACK, font_size=50, anchor_x="center")
-        arcade.draw_text("Click to advance", self.WIDTH / 2, self.HEIGHT / 2 - 75,
-                         arcade.color.GRAY, font_size=20, anchor_x="center")
         self.manager.draw()
 
     def on_hide_view(self):
