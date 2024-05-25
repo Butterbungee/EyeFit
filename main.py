@@ -221,6 +221,7 @@ class MenuView(arcade.View):
         self.OFFSET = int(self.WIDTH * 0.08)
         self.BUTTON_WIDTH = self.WIDTH / 6
         self.BUTTON_HEIGHT = self.HEIGHT / 6
+        self.FONT_SIZE = int(self.OFFSET / 4)
 
         # --- Required for all code that uses UI element,
         # a UIManager to handle the UI.
@@ -234,40 +235,73 @@ class MenuView(arcade.View):
         self.v_box = arcade.gui.UIBoxLayout()
 
         # Create the button style
-        self.button_style = {
+
+        self.select_button_style = {
             "font_name": "calibri",
-            "font_size": self.OFFSET / 3
+            "font_size": self.FONT_SIZE,
+            "font_color": arcade.color.BLACK,
+            "border_color": arcade.color.BLACK,
+            "border_width": 4,
+            "bg_color": arcade.color.PASTEL_GREEN,
+            "bg_color_pressed": arcade.color.PASTEL_GREEN,
+            "border_color_pressed": arcade.color.WHITE,
+            "font_color_pressed": arcade.color.WHITE_SMOKE,
+
+        }
+        self.settings_button_style = {
+            "font_name": "calibri",
+            "font_size": self.FONT_SIZE,
+            "font_color": arcade.color.BLACK,
+            "border_color": arcade.color.BLACK,
+            "border_width": 4,
+            "bg_color": arcade.color.PASTEL_YELLOW,
+            "bg_color_pressed": arcade.color.PASTEL_YELLOW,
+            "border_color_pressed": arcade.color.WHITE,
+            "font_color_pressed": arcade.color.WHITE_SMOKE,
+
+        }
+
+        self.quit_button_style = {
+            "font_name": "calibri",
+            "font_size": self.FONT_SIZE,
+            "font_color": arcade.color.BLACK,
+            "border_color": arcade.color.BLACK,
+            "border_width": 4,
+            "bg_color": arcade.color.PASTEL_RED,
+            "bg_color_pressed": arcade.color.PASTEL_RED,
+            "border_color_pressed": arcade.color.WHITE,
+            "font_color_pressed": arcade.color.WHITE_SMOKE,
 
         }
 
         self.title_label = UILabel(text="EyeFit", font_size=self.OFFSET, font_name="calibri",
                                    text_color=arcade.color.BLACK, italic=True, bold=True)
-        self.v_box.add(self.title_label.with_space_around(bottom=self.OFFSET/2))
+        self.v_box.add(self.title_label.with_space_around(bottom=self.OFFSET / 2))
         # Create the buttons
-        self.level_button = arcade.gui.UIFlatButton(text="Select minigame",
-                                                    width=self.BUTTON_WIDTH,
-                                                    height=self.BUTTON_HEIGHT,
-                                                    style=self.button_style
-                                                    )
-        self.v_box.add(self.level_button.with_space_around(bottom=20))
+        self.select_button = arcade.gui.UIFlatButton(text="Select minigame",
+                                                     width=self.BUTTON_WIDTH,
+                                                     height=self.BUTTON_HEIGHT,
+                                                     style=self.select_button_style
+                                                     )
+        self.v_box.add(self.select_button.with_space_around(bottom=20))
 
         self.settings_button = arcade.gui.UIFlatButton(text="Settings",
                                                        width=self.BUTTON_WIDTH,
                                                        height=self.BUTTON_HEIGHT,
-                                                       style=self.button_style
+                                                       style=self.settings_button_style
                                                        )
         self.v_box.add(self.settings_button.with_space_around(bottom=20))
 
         self.quit_button = arcade.gui.UIFlatButton(text="Quit",
                                                    width=self.BUTTON_WIDTH,
                                                    height=self.BUTTON_HEIGHT,
-                                                   style=self.button_style)
+                                                   style=self.quit_button_style)
         self.v_box.add(self.quit_button.with_space_around(bottom=20))
 
         # Method for handling click events,
         # Using a decorator to handle on_click events
 
-        @self.level_button.event()
+        @self.select_button.event()
         def on_click(event: UIOnClickEvent):
             print("Minigame Select:", event)
             view = MinigameSelect()
@@ -308,6 +342,7 @@ class Settings(arcade.View):
         self.WIDTH = arcade.get_viewport()[1]
         self.HEIGHT = arcade.get_viewport()[3]
         self.OFFSET = int(self.WIDTH * 0.08)
+        self.FONT_SIZE = int(self.OFFSET / 4)
 
         # --- Required for all code that uses UI element,
         # a UIManager to handle the UI.
@@ -322,7 +357,7 @@ class Settings(arcade.View):
         # Create volume label, space and slider
         self.volume_space = UISpace()
         self.volume_slider = UISlider(value=50, width=300, height=50)
-        self.volume_label = UILabel(text="Sound Volume: "f"{self.volume_slider.value:02.0f}", font_size=self.OFFSET / 3)
+        self.volume_label = UILabel(text="Sound Volume: "f"{self.volume_slider.value:02.0f}", font_size=self.FONT_SIZE)
 
         @self.volume_slider.event()
         def on_change(event: UIOnChangeEvent):
@@ -338,7 +373,7 @@ class Settings(arcade.View):
         # Create a horizontal BoxGroup to align mode label and textured button
         self.h_mode_box = UIBoxLayout(vertical=False)
         # Create mode label, tooltip, space and textured button
-        self.mode_label = UILabel(text="Webcam mode", font_size=self.OFFSET / 3)
+        self.mode_label = UILabel(text="Webcam mode", font_size=self.FONT_SIZE)
         self.mode_space = UISpace()
         self.mode_checkbox = UITextureButton(texture=arcade.load_texture("unchecked.png"))
 
@@ -360,9 +395,38 @@ class Settings(arcade.View):
         self.h_mode_box.add(self.mode_checkbox)
         # Create a vertical BoxGroup to align buttons
         self.h_button_box = UIBoxLayout(vertical=False)
+
+        # Create Button style
+        self.apply_button_style = {
+            "font_name": "calibri",
+            "font_size": self.FONT_SIZE,
+            "font_color": arcade.color.BLACK,
+            "border_color": arcade.color.BLACK,
+            "border_width": 4,
+            "bg_color": arcade.color.PASTEL_GREEN,
+            "bg_color_pressed": arcade.color.PASTEL_GREEN,
+            "border_color_pressed": arcade.color.WHITE,
+            "font_color_pressed": arcade.color.WHITE_SMOKE,
+
+        }
+        self.back_button_style = {
+            "font_name": "calibri",
+            "font_size": self.FONT_SIZE,
+            "font_color": arcade.color.BLACK,
+            "border_color": arcade.color.BLACK,
+            "border_width": 4,
+            "bg_color": arcade.color.PASTEL_YELLOW,
+            "bg_color_pressed": arcade.color.PASTEL_YELLOW,
+            "border_color_pressed": arcade.color.WHITE,
+            "font_color_pressed": arcade.color.WHITE_SMOKE,
+
+        }
+
         # Create the buttons
-        self.apply_button = UIFlatButton(text="Apply", width=self.WIDTH / 6, height=self.HEIGHT / 6)
-        self.back_button = UIFlatButton(text="Back", width=self.WIDTH / 6, height=self.HEIGHT / 6)
+        self.apply_button = UIFlatButton(text="Apply", width=self.WIDTH / 6, height=self.HEIGHT / 6,
+                                         style=self.apply_button_style)
+        self.back_button = UIFlatButton(text="Back", width=self.WIDTH / 6, height=self.HEIGHT / 6,
+                                        style=self.back_button_style)
 
         @self.apply_button.event()
         def on_click(event: UIOnClickEvent):
@@ -443,22 +507,22 @@ class MinigameSelect(arcade.View):
                                         style=self.back_button_style
                                         )
         self.apples_button = self.minigame_button("minigame_apples.png")
-        self.placeholder_1 = self.minigame_button("minigame_apples.png")
-        self.placeholder_2 = self.minigame_button("minigame_apples.png")
-        self.placeholder_3 = self.minigame_button("minigame_apples.png")
+        self.placeholder_1 = self.minigame_button("placeholder_1.png")
+        # self.placeholder_2 = self.minigame_button("minigame_apples.png")
+        # self.placeholder_3 = self.minigame_button("minigame_apples.png")
 
         self.title_label = UILabel(text="Apple minigame settings and instructions", font_size=self.OFFSET / 3,
-                                   text_color=arcade.color.BLACK)
+                                   text_color=arcade.color.BLACK, bold=True)
 
         self.h_row_1.add(self.apples_button.with_space_around(10, 10, 10, 10))
         self.h_row_1.add(self.placeholder_1.with_space_around(10, 10, 10, 10))
-        self.h_row_2.add(self.placeholder_2.with_space_around(10, 10, 10, 10))
-        self.h_row_2.add(self.placeholder_3.with_space_around(10, 10, 10, 10))
+        # self.h_row_2.add(self.placeholder_2.with_space_around(10, 10, 10, 10))
+        # self.h_row_2.add(self.placeholder_3.with_space_around(10, 10, 10, 10))
 
-        self.v_box.add(self.title_label.with_space_around(bottom=self.OFFSET/3))
+        self.v_box.add(self.title_label.with_space_around(bottom=self.OFFSET / 3))
         self.v_box.add(self.h_row_1)
         self.v_box.add(self.h_row_2)
-        self.v_box.add(self.back_button.with_space_around(top=self.OFFSET/3))
+        self.v_box.add(self.back_button.with_space_around(top=self.OFFSET / 3))
         # Method for handling click events,
         # Using a decorator to handle on_click events
 
@@ -486,25 +550,25 @@ class MinigameSelect(arcade.View):
         @self.placeholder_1.event()
         def on_click(event: UIOnClickEvent):
             print("Placeholder_1:", event)
-            view = AppleInstruction()
-            self.window.show_view(view)
+            # view = AppleInstruction()
+            # self.window.show_view(view)
 
-        @self.placeholder_2.event()
-        def on_click(event: UIOnClickEvent):
-            print("Placeholder_1:", event)
-            view = AppleInstruction()
-            self.window.show_view(view)
-
-        @self.placeholder_3.event()
-        def on_click(event: UIOnClickEvent):
-            print("Placeholder_1:", event)
-            view = AppleInstruction()
-            self.window.show_view(view)
+        # @self.placeholder_2.event()
+        # def on_click(event: UIOnClickEvent):
+        #     print("Placeholder_1:", event)
+        #     view = AppleInstruction()
+        #     self.window.show_view(view)
+        #
+        # @self.placeholder_3.event()
+        # def on_click(event: UIOnClickEvent):
+        #     print("Placeholder_1:", event)
+        #     view = AppleInstruction()
+        #     self.window.show_view(view)
 
     def minigame_button(self, texture_name):
         return UITextureButton(texture=arcade.load_texture(texture_name),
-                               height=self.HEIGHT*.3,
-                               width=self.WIDTH*.3)
+                               height=self.HEIGHT * .3,
+                               width=self.WIDTH * .3)
 
     def on_draw(self):
         self.clear()
@@ -524,6 +588,7 @@ class AppleInstruction(arcade.View):
         print("offset is ", self.OFFSET)
         self.BUTTON_WIDTH = self.WIDTH / 6
         self.BUTTON_HEIGHT = self.HEIGHT / 6
+        self.FONT_SIZE = int(self.OFFSET / 4)
 
         # --- Required for all code that uses UI element,
         # a UIManager to handle the UI.
@@ -542,7 +607,7 @@ class AppleInstruction(arcade.View):
         # Create the button style
         self.play_button_style = {
             "font_name": "calibri",
-            "font_size": self.OFFSET / 3,
+            "font_size": self.FONT_SIZE,
             "font_color": arcade.color.BLACK,
             "border_color": arcade.color.BLACK,
             "border_width": 4,
@@ -554,7 +619,7 @@ class AppleInstruction(arcade.View):
         }
         self.back_button_style = {
             "font_name": "calibri",
-            "font_size": self.OFFSET / 3,
+            "font_size": self.FONT_SIZE,
             "font_color": arcade.color.BLACK,
             "border_color": arcade.color.BLACK,
             "border_width": 4,
@@ -619,6 +684,13 @@ class AppleInstruction(arcade.View):
 
         # Method for handling click events,
         # Using a decorator to handle on_click events
+        @self.play_button.event()
+        def on_click(event: UIOnClickEvent):
+            print("Play:", event)
+            view = AppleMinigame()
+            view.setup()
+            self.window.show_view(view)
+
         @self.back_button.event()
         def on_click(event: UIOnClickEvent):
             print("Back:", event)
@@ -694,7 +766,7 @@ class AppleMinigame(arcade.View):
     def setup(self):
         """ Set up the game and initialize the variables. """
         # clear score
-        GameWindow.total_score = 0
+        self.window.total_score = 0
 
         # clear recording
         GameWindow.recording = []
@@ -765,7 +837,7 @@ class AppleMinigame(arcade.View):
         self.timer_text.draw()
 
         # Put the text on the screen.
-        output = f"Score: {GameWindow.total_score}"
+        output = f"Score: {self.window.total_score}"
         arcade.draw_text(text=output, start_x=self.WIDTH / 2, start_y=self.HEIGHT / 2 - self.OFFSET,
                          color=arcade.color.WHITE, font_size=25,
                          anchor_x="center", anchor_y="top")
@@ -824,11 +896,11 @@ class AppleMinigame(arcade.View):
                     if Basket.speed < 20:
                         Basket.speed += SPEED_INCREMENT
                     Basket.backwards = not Basket.backwards
-                    GameWindow.total_score += 1
+                    self.window.total_score += 1
                     self.player_sprite.alpha = 0
                     self.picked_up_state = False
 
-            if GameWindow.total_score == APPLE_COUNT:
+            if self.window.total_score == APPLE_COUNT:
                 game_over_view = AppleMinigameOverView()
                 self.window.show_view(game_over_view)
 
@@ -977,13 +1049,12 @@ class AppleMinigameOverView(arcade.View):
 
 
 class GameWindow(arcade.Window):
-    total_score = 0
 
     def __init__(self):
         super().__init__(title="EyeFit",
                          resizable=False,
                          fullscreen=True)
-        GameWindow.total_score = 0
+        self.total_score = 0
         GameWindow.recording = []
         GameWindow.time_elapsed = ""
 
