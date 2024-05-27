@@ -12,9 +12,10 @@ SCREEN_TITLE = "Apple Collecting Game"
 SPRITE_SCALING_APPLE = 0.1
 SPRITE_SCALING_BASKET = 0.2
 APPLE_COUNT = 10
-BASKET_SPEED = 10
-SPEED_INCREMENT = 2
-OFFSET_MULTIPLIER = 0.1
+BASKET_SPEED = 5
+SPEED_INCREMENT = 1
+MAX_SPEED = 10
+OFFSET_MULTIPLIER = 0.08
 RECORDING_SAMPLING = 6  # Recording every x viewport updates
 
 
@@ -49,7 +50,7 @@ class Record(arcade.Section):
         self.circle_counter = 0
         self.number_counter = 1
         self.opacity_float = .0
-        self.opacity_increment = 255 / GameWindow.recording.__len__()
+        self.opacity_increment = 255 / self.window.recording.__len__()
         self.opacity = 1
 
     def on_draw(self):
@@ -63,22 +64,22 @@ class Record(arcade.Section):
         arcade.draw_text(f'{self.name}', self.left + self.FONT_SIZE,
                          self.top - self.FONT_SIZE * 2, arcade.color.BLACK, self.FONT_SIZE)
 
-        if GameWindow.recording[0] == (0, 0):
-            GameWindow.recording.pop(0)
+        if self.window.recording[0] == (0, 0):
+            self.window.recording.pop(0)
         else:
             pass
-        for index in range(GameWindow.recording.__len__()):
+        for index in range(self.window.recording.__len__()):
             self.opacity = int(self.opacity_float)
-            if index == GameWindow.recording.__len__() - 1:
-                start_x, start_y = GameWindow.recording[index][0] + self.x_offset, GameWindow.recording[index][
+            if index == self.window.recording.__len__() - 1:
+                start_x, start_y = self.window.recording[index][0] + self.x_offset, self.window.recording[index][
                     1] + self.y_offset
                 draw_point(start_x, start_y, 255)
                 draw_number(start_x, start_y, self.number_counter, 255)
 
             else:
-                start_x, start_y = GameWindow.recording[index][0] + self.x_offset, GameWindow.recording[index][
+                start_x, start_y = self.window.recording[index][0] + self.x_offset, self.window.recording[index][
                     1] + self.y_offset
-                end_x, end_y = GameWindow.recording[index + 1][0] + self.x_offset, GameWindow.recording[index + 1][
+                end_x, end_y = self.window.recording[index + 1][0] + self.x_offset, self.window.recording[index + 1][
                     1] + self.y_offset
                 if self.line_counter == index:
                     draw_line(start_x, start_y, end_x, end_y, self.opacity)
@@ -218,7 +219,7 @@ class MenuView(arcade.View):
 
         self.WIDTH = arcade.get_viewport()[1]
         self.HEIGHT = arcade.get_viewport()[3]
-        self.OFFSET = int(self.WIDTH * 0.08)
+        self.OFFSET = int(self.WIDTH * OFFSET_MULTIPLIER)
         self.BUTTON_WIDTH = self.WIDTH / 6
         self.BUTTON_HEIGHT = self.HEIGHT / 6
         self.FONT_SIZE = int(self.OFFSET / 4)
@@ -341,7 +342,7 @@ class Settings(arcade.View):
 
         self.WIDTH = arcade.get_viewport()[1]
         self.HEIGHT = arcade.get_viewport()[3]
-        self.OFFSET = int(self.WIDTH * 0.08)
+        self.OFFSET = int(self.WIDTH * OFFSET_MULTIPLIER)
         self.FONT_SIZE = int(self.OFFSET / 4)
 
         # --- Required for all code that uses UI element,
@@ -375,7 +376,7 @@ class Settings(arcade.View):
         # Create mode label, tooltip, space and textured button
         self.mode_label = UILabel(text="Webcam mode", font_size=self.FONT_SIZE)
         self.mode_space = UISpace()
-        self.mode_checkbox = UITextureButton(texture=arcade.load_texture("unchecked.png"))
+        self.mode_checkbox = UITextureButton(texture=arcade.load_texture("resources/unchecked.png"))
 
         # Track the state of the mode_checkbox
         self.mode_enabled = True
@@ -384,10 +385,10 @@ class Settings(arcade.View):
         def on_click(event: UIOnClickEvent):
             print("mode_checkbox: ", event)
             if self.mode_enabled:
-                self.mode_checkbox.texture = arcade.load_texture("checked.png")
+                self.mode_checkbox.texture = arcade.load_texture("resources/checked.png")
                 self.mode_enabled = not self.mode_enabled
             else:
-                self.mode_checkbox.texture = arcade.load_texture("unchecked.png")
+                self.mode_checkbox.texture = arcade.load_texture("resources/unchecked.png")
                 self.mode_enabled = not self.mode_enabled
 
         self.h_mode_box.add(self.mode_label)
@@ -470,7 +471,7 @@ class MinigameSelect(arcade.View):
 
         self.WIDTH = arcade.get_viewport()[1]
         self.HEIGHT = arcade.get_viewport()[3]
-        self.OFFSET = int(self.WIDTH * 0.08)
+        self.OFFSET = int(self.WIDTH * OFFSET_MULTIPLIER)
         self.BUTTON_WIDTH = self.WIDTH / 6
         self.BUTTON_HEIGHT = self.HEIGHT / 6
 
@@ -506,25 +507,19 @@ class MinigameSelect(arcade.View):
                                         height=self.BUTTON_HEIGHT,
                                         style=self.back_button_style
                                         )
-        self.apples_button = self.minigame_button("minigame_apples.png")
-        self.placeholder_1 = self.minigame_button("placeholder_1.png")
-        # self.placeholder_2 = self.minigame_button("minigame_apples.png")
-        # self.placeholder_3 = self.minigame_button("minigame_apples.png")
+        self.apples_button = self.minigame_button("resources/minigame_apples.png")
+        self.placeholder_1 = self.minigame_button("resources/placeholder_1.png")
 
         self.title_label = UILabel(text="Apple minigame settings and instructions", font_size=self.OFFSET / 3,
                                    text_color=arcade.color.BLACK, bold=True)
 
         self.h_row_1.add(self.apples_button.with_space_around(10, 10, 10, 10))
         self.h_row_1.add(self.placeholder_1.with_space_around(10, 10, 10, 10))
-        # self.h_row_2.add(self.placeholder_2.with_space_around(10, 10, 10, 10))
-        # self.h_row_2.add(self.placeholder_3.with_space_around(10, 10, 10, 10))
 
         self.v_box.add(self.title_label.with_space_around(bottom=self.OFFSET / 3))
         self.v_box.add(self.h_row_1)
         self.v_box.add(self.h_row_2)
         self.v_box.add(self.back_button.with_space_around(top=self.OFFSET / 3))
-        # Method for handling click events,
-        # Using a decorator to handle on_click events
 
         # Create a widget to hold the v_box widget, that will center the buttons
         self.manager.add(
@@ -535,6 +530,8 @@ class MinigameSelect(arcade.View):
                 size_hint_max=(10, 10))
         )
 
+        # Method for handling click events,
+        # Using a decorator to handle on_click events
         @self.back_button.event()
         def on_click(event: UIOnClickEvent):
             print("Back:", event)
@@ -552,18 +549,6 @@ class MinigameSelect(arcade.View):
             print("Placeholder_1:", event)
             # view = AppleInstruction()
             # self.window.show_view(view)
-
-        # @self.placeholder_2.event()
-        # def on_click(event: UIOnClickEvent):
-        #     print("Placeholder_1:", event)
-        #     view = AppleInstruction()
-        #     self.window.show_view(view)
-        #
-        # @self.placeholder_3.event()
-        # def on_click(event: UIOnClickEvent):
-        #     print("Placeholder_1:", event)
-        #     view = AppleInstruction()
-        #     self.window.show_view(view)
 
     def minigame_button(self, texture_name):
         return UITextureButton(texture=arcade.load_texture(texture_name),
@@ -584,7 +569,7 @@ class AppleInstruction(arcade.View):
 
         self.WIDTH = arcade.get_viewport()[1]
         self.HEIGHT = arcade.get_viewport()[3]
-        self.OFFSET = int(self.WIDTH * 0.08)
+        self.OFFSET = int(self.WIDTH * OFFSET_MULTIPLIER)
         print("offset is ", self.OFFSET)
         self.BUTTON_WIDTH = self.WIDTH / 6
         self.BUTTON_HEIGHT = self.HEIGHT / 6
@@ -645,17 +630,33 @@ class AppleInstruction(arcade.View):
                                        width=self.WIDTH / 2,
                                        height=self.HEIGHT / 2
                                        )
-        self.apple_slider = UISlider(value=30, min_value=10, max_value=99, width=int(self.WIDTH / 3),
-                                     height=self.OFFSET / 2)
-        self.number = UILabel(text=f"{int(self.apple_slider.value):02.0f}", font_size=self.OFFSET / 3,
-                              text_color=arcade.color.BLACK)
+        self.apple_slider = UISlider(value=30,
+                                     min_value=10,
+                                     max_value=99,
+                                     width=int(self.WIDTH / 3),
+                                     height=self.OFFSET / 2
+                                     )
+        self.number = UILabel(text=f"{int(self.apple_slider.value):02.0f}",
+                              font_size=self.OFFSET / 3,
+                              text_color=arcade.color.BLACK
+                              )
 
-        self.slider_label = UILabel(text="Number of apples", font_size=self.OFFSET / 3, text_color=arcade.color.BLACK)
-        self.cam_background = UITextureButton(texture=arcade.load_texture("apple_cam.png"))
-        self.normal_background = UITextureButton(texture=arcade.load_texture("apple_default.png"))
-        self.background_label = UILabel(text="Background", font_size=self.OFFSET / 3, text_color=arcade.color.BLACK)
-        self.title_label = UILabel(text="Apple minigame settings and instructions", font_size=self.OFFSET / 3,
-                                   text_color=arcade.color.BLACK)
+        self.slider_label = UILabel(text="Number of apples",
+                                    font_size=self.OFFSET / 3,
+                                    text_color=arcade.color.BLACK
+                                    )
+        self.cam_background = UITextureButton(texture=arcade.load_texture("resources/apple_cam.png")
+                                              )
+        self.normal_background = UITextureButton(texture=arcade.load_texture("resources/apple_default.png")
+                                                 )
+        self.background_label = UILabel(text="Background",
+                                        font_size=self.OFFSET / 3,
+                                        text_color=arcade.color.BLACK
+                                        )
+        self.title_label = UILabel(text="Apple minigame settings and instructions",
+                                   font_size=self.OFFSET / 3,
+                                   text_color=arcade.color.BLACK
+                                   )
 
         self.button_box.add(self.play_button.with_space_around(right=self.BUTTON_WIDTH / 4))
         self.button_box.add(self.back_button.with_space_around(left=self.BUTTON_WIDTH / 4))
@@ -663,8 +664,8 @@ class AppleInstruction(arcade.View):
         self.right_box.add(self.button_box)
         self.slider_box.add(self.apple_slider)
         self.slider_box.add(self.number)
-        self.background_box.add(self.normal_background)
-        self.background_box.add(self.cam_background)
+        self.background_box.add(self.normal_background.with_space_around(right=self.OFFSET / 4))
+        self.background_box.add(self.cam_background.with_space_around(left=self.OFFSET / 4))
         self.left_box.add(self.background_label)
         self.left_box.add(self.background_box.with_space_around(bottom=self.OFFSET))
         self.left_box.add(self.slider_label)
@@ -687,9 +688,20 @@ class AppleInstruction(arcade.View):
         @self.play_button.event()
         def on_click(event: UIOnClickEvent):
             print("Play:", event)
+            self.window.apple_count = int(self.apple_slider.value)
             view = AppleMinigame()
             view.setup()
             self.window.show_view(view)
+
+        @self.normal_background.event()
+        def on_click(event: UIOnClickEvent):
+            print("Default selected:", event)
+            self.window.background_type = "default"
+
+        @self.cam_background.event()
+        def on_click(event: UIOnClickEvent):
+            print("Cam selected:", event)
+            self.window.background_type = "cam"
 
         @self.back_button.event()
         def on_click(event: UIOnClickEvent):
@@ -718,9 +730,27 @@ class AppleMinigame(arcade.View):
     def __init__(self):
         super().__init__()
 
+        if self.window.background_type == "cam":
+            self.shape_list = None
+
+            self.WIDTH = arcade.get_viewport()[1]
+            self.HEIGHT = arcade.get_viewport()[3]
+            self.OFFSET = int(self.WIDTH * 0.08)
+
+            # Calculate the diagonal of the screen
+            self.DIAGONAL = int((self.WIDTH ** 2 + self.HEIGHT ** 2) ** 0.5)
+
+            # Set shape size to be larger than the screen diagonal
+            self.SHAPE_SIZE = self.DIAGONAL + 100
+            self.text_color = arcade.color.RED
+
+        elif self.window.background_type == "default":
+            arcade.set_background_color(arcade.color.PASTEL_GREEN)
+            self.text_color = arcade.color.WHITE
+
         self.WIDTH = arcade.get_viewport()[1]
         self.HEIGHT = arcade.get_viewport()[3]
-        self.OFFSET = int(self.WIDTH * 0.08)
+        self.OFFSET = int(self.WIDTH * OFFSET_MULTIPLIER)
 
         self.modal_section = ModalSection(int(self.WIDTH / 4) + self.OFFSET,
                                           int(self.HEIGHT / 3) - int(self.OFFSET / 2),
@@ -732,10 +762,14 @@ class AppleMinigame(arcade.View):
             text="00:00",
             start_x=self.WIDTH // 2,
             start_y=self.HEIGHT // 2 - 50,
-            color=arcade.color.WHITE,
+            color=self.text_color,
             font_size=100,
             anchor_x="center",
         )
+
+        self.initial_apple_count = 0
+        self.apples_created = 0
+        self.total_apples_to_create = 0
 
         # Sprite lists
         self.player_list = None
@@ -761,15 +795,14 @@ class AppleMinigame(arcade.View):
 
         self.section_manager.add_section(self.modal_section)
 
-        arcade.set_background_color(arcade.color.PASTEL_GREEN)
-
     def setup(self):
         """ Set up the game and initialize the variables. """
         # clear score
         self.window.total_score = 0
+        # self.window.apple_count = APPLE_COUNT
 
         # clear recording
-        GameWindow.recording = []
+        self.window.recording = []
 
         # define screen
         left, right, bottom, top = arcade.get_viewport()
@@ -785,8 +818,50 @@ class AppleMinigame(arcade.View):
         # Variable represents if player is holding an apple
         self.picked_up_state = False
 
+        # background selection
+        if self.window.background_type == "cam":
+            self.shape_list = arcade.ShapeElementList()
+
+            # --- Create all the rectangles
+
+            # We need a list of all the points and colors
+            point_list = []
+            color_list = []
+
+            # Calculate the center offset
+            x_offset = y_offset = self.SHAPE_SIZE // 2
+
+            # Now calculate all the points
+            for x in range(0, self.SHAPE_SIZE, self.OFFSET):
+                for y in range(0, self.SHAPE_SIZE, self.OFFSET):
+                    # Calculate where the four points of the rectangle will be if
+                    # x and y are the center
+                    top_left = (x - self.OFFSET - x_offset, y + self.OFFSET - y_offset)
+                    top_right = (x + self.OFFSET - x_offset, y + self.OFFSET - y_offset)
+                    bottom_right = (x + self.OFFSET - x_offset, y - self.OFFSET - y_offset)
+                    bottom_left = (x - self.OFFSET - x_offset, y - self.OFFSET - y_offset)
+
+                    # Add the points to the points list.
+                    # ORDER MATTERS!
+                    # Rotate around the rectangle, don't append points caty-corner
+                    point_list.append(top_left)
+                    point_list.append(top_right)
+                    point_list.append(bottom_right)
+                    point_list.append(bottom_left)
+
+                    # Add a color for each point alternating between two colors
+                    if (x // self.OFFSET + y // self.OFFSET) % 2 == 0:
+                        color_list.extend([arcade.color.WHITE] * 4)
+                    else:
+                        color_list.extend([arcade.color.BLACK] * 4)
+
+            shape = arcade.create_rectangles_filled_with_colors(point_list, color_list)
+            self.shape_list.append(shape)
+
+            self.shape_list._center_y = self.HEIGHT // 2
+            self.shape_list._center_x = self.WIDTH // 2
         # Set up the player
-        player = self.player_sprite = arcade.Sprite("apple.png",
+        player = self.player_sprite = arcade.Sprite("resources/apple.png",
                                                     SPRITE_SCALING_APPLE,
                                                     center_x=0,
                                                     center_y=0)
@@ -802,7 +877,7 @@ class AppleMinigame(arcade.View):
                          [left + self.OFFSET, top - self.OFFSET]]
 
         # Create the basket
-        basket = Basket("basket.png",
+        basket = Basket("resources/basket.png",
                         SPRITE_SCALING_BASKET,
                         position_list)
 
@@ -814,17 +889,26 @@ class AppleMinigame(arcade.View):
         self.basket_list.append(basket)
 
         # Create the apples
-        for i in range(APPLE_COUNT):
-            # Create the apple instance
-            apple = arcade.Sprite("apple.png",
-                                  SPRITE_SCALING_APPLE)
-            # Position the apple
-            width, height = int(arcade.get_viewport()[1]), int(arcade.get_viewport()[3])
-            apple.center_x = random.randrange(self.OFFSET, (width - self.OFFSET))
-            apple.center_y = random.randrange(self.OFFSET, (height - self.OFFSET))
+        self.initial_apple_count = 10
+        self.apples_created = 0
+        self.total_apples_to_create = self.window.apple_count
 
-            # Add the apple to the lists
-            self.apple_list.append(apple)
+        for _ in range(self.initial_apple_count):
+            self.create_apple()
+
+    def create_apple(self):
+        """Create a single apple and add it to the apple list."""
+        width, height = int(arcade.get_viewport()[1]), int(arcade.get_viewport()[3])
+        max_attempts = 50
+        for _ in range(max_attempts):
+            apple = arcade.Sprite("resources/apple.png", SPRITE_SCALING_APPLE)
+            apple.center_x = random.randrange(self.OFFSET, width - self.OFFSET)
+            apple.center_y = random.randrange(self.OFFSET, height - self.OFFSET)
+
+            if not arcade.check_for_collision_with_list(apple, self.apple_list):
+                self.apple_list.append(apple)
+                self.apples_created += 1
+                return
 
     def on_draw(self):
 
@@ -833,13 +917,18 @@ class AppleMinigame(arcade.View):
         # Start rendering
         arcade.start_render()
 
+        # Draw cam Background
+        if self.window.background_type == "cam":
+            # --- Draw all the rectangles
+            self.shape_list.draw()
+
         # Timer
         self.timer_text.draw()
 
         # Put the text on the screen.
         output = f"Score: {self.window.total_score}"
         arcade.draw_text(text=output, start_x=self.WIDTH / 2, start_y=self.HEIGHT / 2 - self.OFFSET,
-                         color=arcade.color.WHITE, font_size=25,
+                         color=self.text_color, font_size=25,
                          anchor_x="center", anchor_y="top")
 
         # Draw all sprites
@@ -859,6 +948,10 @@ class AppleMinigame(arcade.View):
         if self.paused():
             pass
         else:
+            # Background Rotation
+            if self.window.background_type == "cam":
+                self.shape_list.angle += .1
+
             # Timer
             self.total_time += delta_time
 
@@ -870,10 +963,10 @@ class AppleMinigame(arcade.View):
 
             # Use string formatting to create a new text string for our timer
             self.timer_text.text = f"{minutes:02d}:{seconds:02d}"
-            GameWindow.time_elapsed = self.timer_text.text
+            self.window.time_elapsed = self.timer_text.text
 
             if self.counter == RECORDING_SAMPLING:
-                GameWindow.recording.append(self.move_pointer())
+                self.window.recording.append(self.move_pointer())
                 self.counter = 0
 
             self.counter += 1
@@ -890,17 +983,19 @@ class AppleMinigame(arcade.View):
                     apple.remove_from_sprite_lists()
                     self.picked_up_state = True
                     self.player_sprite.alpha = 255
+                    if self.apples_created < self.total_apples_to_create:
+                        self.create_apple()
 
             if basket_collision_list and self.picked_up_state:
                 for _ in basket_collision_list:
-                    if Basket.speed < 20:
+                    if Basket.speed < MAX_SPEED:
                         Basket.speed += SPEED_INCREMENT
                     Basket.backwards = not Basket.backwards
                     self.window.total_score += 1
                     self.player_sprite.alpha = 0
                     self.picked_up_state = False
 
-            if self.window.total_score == APPLE_COUNT:
+            if self.window.total_score == self.window.apple_count:
                 game_over_view = AppleMinigameOverView()
                 self.window.show_view(game_over_view)
 
@@ -1017,12 +1112,12 @@ class AppleMinigameOverView(arcade.View):
                        self.RECORD_WIDTH - self.RECORD_OFFSET)
 
         # draw Time
-        output_time = f"Time taken: {GameWindow.time_elapsed}"
+        output_time = f"Time taken: {self.window.time_elapsed}"
         self.draw_text(output_time, 0, self.HEIGHT - self.RECORD_OFFSET * 2.2, font_size / 2,
                        self.RECORD_WIDTH - self.RECORD_OFFSET)
 
         # draw Pixels Traveled
-        output_pixels = f"Pixels Traveled: {self.travel(GameWindow.recording)}"
+        output_pixels = f"Pixels Traveled: {self.travel(self.window.recording)}"
         self.draw_text(output_pixels, 0, self.HEIGHT - self.RECORD_OFFSET * 3.2, font_size / 2,
                        self.RECORD_WIDTH - self.RECORD_OFFSET)
 
@@ -1055,8 +1150,10 @@ class GameWindow(arcade.Window):
                          resizable=False,
                          fullscreen=True)
         self.total_score = 0
-        GameWindow.recording = []
-        GameWindow.time_elapsed = ""
+        self.apple_count = APPLE_COUNT
+        self.recording = []
+        self.time_elapsed = ""
+        self.background_type = "default"
 
     # def on_key_press(self, symbol: int, modifiers: int):
     #   if symbol == arcade.key.ESCAPE:
