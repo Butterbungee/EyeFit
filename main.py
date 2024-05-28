@@ -24,8 +24,8 @@ def draw_line(start_x, start_y, end_x, end_y, opacity):
                      6)
 
 
-def draw_point(start_x, start_y, opacity, type):
-    if type == "normal":
+def draw_point(start_x, start_y, opacity, type_state):
+    if type_state == "normal":
         arcade.draw_circle_filled(start_x,
                                   start_y,
                                   30,
@@ -37,7 +37,7 @@ def draw_point(start_x, start_y, opacity, type):
                                    arcade.make_transparent_color(arcade.color.DARK_SLATE_GRAY, opacity),
                                    5
                                    )
-    elif type == "start":
+    elif type_state == "start":
         arcade.draw_circle_filled(start_x,
                                   start_y,
                                   30,
@@ -48,7 +48,7 @@ def draw_point(start_x, start_y, opacity, type):
                                    arcade.make_transparent_color(arcade.color.DARK_SLATE_GRAY, opacity),
                                    5
                                    )
-    elif type == "point":
+    elif type_state == "point":
         arcade.draw_circle_filled(start_x,
                                   start_y,
                                   30,
@@ -65,16 +65,16 @@ def draw_number(start_x, start_y, index, opacity):
                      16, anchor_x="center", anchor_y="center", bold=True)
 
 
+# noinspection PyUnusedLocal
 def sign_recording(list_a):
-    flag = False
     list_a[0] = list_a[0][0:-1] + ("start",)
     list_a[-1] = list_a[-1][0:-1] + ("point",)
     score = 0
 
     # Create a copy of the list for iteration
-    listb = list_a.copy()
+    list_b = list_a.copy()
 
-    for _ in listb:
+    for _ in list_b:
         if _[3] == score:
             flag = False
         else:
@@ -87,7 +87,7 @@ def sign_recording(list_a):
     list_b = list_a.copy()
     score = list_a[-1][3]
 
-    for _ in listb[::-1]:
+    for _ in list_b[::-1]:
         if _[3] == score:
             flag = False
         else:
@@ -119,19 +119,6 @@ class Record(arcade.Section):
         self.start_list = []
         self.point_list = []
 
-    # def on_show_section(self):
-    #     # score = 0
-    #
-    #     # if _[3] == score:
-    #     #     print(_, self.window.recording.index(_))
-    #     #     self.start_list.append(self.window.recording.index(_))
-    #     #     score += 1
-    #     # if 0 < score == _[3]:
-    #     #     print(_, self.window.recording.index(_))
-    #     #     self.start_list.append(self.window.recording.index(_))
-    #     #     score += 1
-    #     pass
-
     def on_draw(self):
         """ Draw this section """
         arcade.draw_lrtb_rectangle_filled(self.left, self.right, self.top,
@@ -152,8 +139,9 @@ class Record(arcade.Section):
             else:
                 start_x, start_y = self.window.recording[index][0] + self.x_offset, self.window.recording[index][
                     1] + self.y_offset
-                end_x, end_y = self.window.recording[index + 1][0] + self.x_offset, \
-                               self.window.recording[index + 1][1] + self.y_offset
+                end_x = self.window.recording[index + 1][0] + self.x_offset
+                end_y = self.window.recording[index + 1][1] + self.y_offset
+
                 if self.line_counter == index:
                     draw_line(start_x, start_y, end_x, end_y, self.opacity)
                     self.line_counter += 1
@@ -799,6 +787,7 @@ class AppleInstruction(arcade.View):
         self.manager.disable()
 
 
+# noinspection PyTypeChecker
 class AppleMinigame(arcade.View):
     def __init__(self):
         super().__init__()
@@ -1046,7 +1035,7 @@ class AppleMinigame(arcade.View):
 
             if self.counter == RECORDING_SAMPLING:
                 self.window.recording.append(
-                    self.move_pointer() + (self.window.time_elapsed, self.window.total_score, "normal"))
+                    self.move_pointer() + (self.total_time, self.window.total_score + 1, "normal"))
                 self.counter = 0
 
             self.counter += 1
@@ -1113,6 +1102,8 @@ class AppleMinigameOverView(arcade.View):
         self.manager = UIManager()
         self.manager.enable()
 
+        self.do_once = True
+
         # Screensize variables
         self.WIDTH = arcade.get_viewport()[1]
         self.HEIGHT = arcade.get_viewport()[3]
@@ -1124,6 +1115,33 @@ class AppleMinigameOverView(arcade.View):
         self.RECORD_OFFSET = int(self.WIDTH * OFFSET_MULTIPLIER)
         self.BUTTON_WIDTH = int(self.RECORD_WIDTH / 3)
         self.BUTTON_HEIGHT = int(self.RECORD_HEIGHT / 3)
+        self.FONT_SIZE = int(self.OFFSET / 4)
+
+        # Create the button style
+        self.play_button_style = {
+            "font_name": "calibri",
+            "font_size": self.FONT_SIZE,
+            "font_color": arcade.color.BLACK,
+            "border_color": arcade.color.BLACK,
+            "border_width": 4,
+            "bg_color": arcade.color.PASTEL_GREEN,
+            "bg_color_pressed": arcade.color.PASTEL_GREEN,
+            "border_color_pressed": arcade.color.WHITE,
+            "font_color_pressed": arcade.color.WHITE_SMOKE,
+
+        }
+        self.back_button_style = {
+            "font_name": "calibri",
+            "font_size": self.FONT_SIZE,
+            "font_color": arcade.color.BLACK,
+            "border_color": arcade.color.BLACK,
+            "border_width": 4,
+            "bg_color": arcade.color.PASTEL_YELLOW,
+            "bg_color_pressed": arcade.color.PASTEL_YELLOW,
+            "border_color_pressed": arcade.color.WHITE,
+            "font_color_pressed": arcade.color.WHITE_SMOKE,
+
+        }
 
         # The Record section holds the Recording view
         self.add_section(Record(self.RECORD_LEFT - self.RECORD_OFFSET,
@@ -1132,29 +1150,16 @@ class AppleMinigameOverView(arcade.View):
                                 self.RECORD_HEIGHT,
                                 name='Recording Container'))
 
-        # Sign recording
-        for _ in self.window.recording:
-            if [_][0] == 0 and [_][1] == 0:
-                self.window.recording.pop(self.window.recording.index(_))
-                print(_)
-        self.window.recording = sign_recording(self.window.recording)
-
         text = ""
-        # Record point timing to a separate list
-        for _ in self.window.recording:
-            if _[4] == "start" or _[4] == "point":
-                self.window.apple_timing.append(_[2:])
-                text += text + str(_[2:]) + "\n"
-
-        text_area = UITextArea(x=100,
-                               y=200,
-                               width=500,
-                               height=300,
-                               text=text,
-                               text_color=(0, 0, 0, 255),
-                               font_size=18
-                               )
-        self.manager.add(text_area.with_space_around(right=20))
+        self.text_area = UITextArea(x=100,
+                                    y=200,
+                                    width=500,
+                                    height=300,
+                                    text=text,
+                                    text_color=(0, 0, 0, 255),
+                                    font_size=18
+                                    )
+        self.manager.add(self.text_area.with_space_around(right=20))
 
         # add play again button
         self.button_again = self.new_button(self.BUTTON_WIDTH,
@@ -1171,6 +1176,31 @@ class AppleMinigameOverView(arcade.View):
 
         self.button_menu.position = (self.WIDTH * 7 / 8 - self.RECORD_OFFSET,
                                      self.RECORD_BOTTOM - self.RECORD_OFFSET * 2)
+
+        # Create the buttons
+        self.back_button = UIFlatButton(text="Back",
+                                        width=self.BUTTON_WIDTH,
+                                        height=self.BUTTON_HEIGHT,
+                                        style=self.back_button_style
+                                        )
+        self.play_button = UIFlatButton(text="Play",
+                                        width=self.BUTTON_WIDTH,
+                                        height=self.BUTTON_HEIGHT,
+                                        style=self.play_button_style
+                                        )
+        self.button_box = UIBoxLayout(vertical=False, align="left")
+        self.button_box.add(self.play_button.with_space_around(right=self.BUTTON_WIDTH/2,
+                                                               left=self.BUTTON_WIDTH/4)
+                            )
+        self.button_box.add(self.back_button)
+        self.manager.add(
+            UIAnchorWidget(
+                anchor_x="left",
+                anchor_y="bottom",
+                align_x=self.WIDTH * 4 / 8 - self.RECORD_OFFSET,
+                align_y=self.RECORD_BOTTOM - self.RECORD_OFFSET * 2 - self.BUTTON_WIDTH/4,
+                child=self.button_box)
+        )
 
     @staticmethod
     def new_button(width, height, color):
@@ -1207,9 +1237,31 @@ class AppleMinigameOverView(arcade.View):
                          self.RECORD_BOTTOM - self.RECORD_OFFSET * 2,
                          arcade.color.BLACK, 30, bold=True, anchor_x="center", anchor_y="center")
 
+    def on_show_view(self):
+        # Prepare score recording
+        # Sign recording
+        for _ in self.window.recording:
+            if [_][0] == 0 and [_][1] == 0:
+                self.window.recording.pop(self.window.recording.index(_))
+                print(_)
+        self.window.recording = sign_recording(self.window.recording)
+
+        # Record point timing to a separate list
+
+        for _ in self.window.recording:
+            if _[-1] == "start":
+                self.window.apple_timing.append(_[2:])
+            if _[-1] == "point":
+                self.window.apple_timing.append(_[2:])
+
+        string = "".join([str(_) + "\n" for _ in self.window.apple_timing])
+        print(string)
+        self.text_area.text = string
+
     def on_draw(self):
         # clear the screen
         self.clear(arcade.color.PASTEL_BLUE)
+
         font_size = int(self.RECORD_OFFSET / 2)
 
         self.draw_text("You Finished!", 0, self.HEIGHT - self.RECORD_OFFSET * 0.1, font_size, self.WIDTH)
