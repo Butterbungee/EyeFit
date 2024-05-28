@@ -1,5 +1,6 @@
-import arcade
 import time
+
+import arcade
 import numpy as np
 
 SCREEN_WIDTH = 800
@@ -8,6 +9,7 @@ SCREEN_TITLE = "Mouse Movement Heatmap"
 RECORDING_DURATION = 5  # seconds
 HEATMAP_RESOLUTION = 64  # Number of bins in each dimension
 KERNEL_RADIUS = 5  # Radius of the effect around the mouse position in bins
+
 
 class HeatmapWindow(arcade.Window):
     def __init__(self, width, height, title):
@@ -26,7 +28,8 @@ class HeatmapWindow(arcade.Window):
         self.mouse_positions = []
         self.heatmap = np.zeros((HEATMAP_RESOLUTION, HEATMAP_RESOLUTION))
 
-    def create_circular_gaussian_kernel(self, radius):
+    @staticmethod
+    def create_circular_gaussian_kernel(radius):
         """Creates a circular Gaussian kernel with the given radius."""
         size = radius * 2 + 1
         kernel = np.zeros((size, size))
@@ -34,9 +37,9 @@ class HeatmapWindow(arcade.Window):
             for y in range(size):
                 dx = x - radius
                 dy = y - radius
-                distance = np.sqrt(dx*dx + dy*dy)
+                distance = np.sqrt(dx * dx + dy * dy)
                 if distance <= radius:
-                    kernel[x, y] = np.exp(-(dx*dx + dy*dy) / (2 * radius * radius))
+                    kernel[x, y] = np.exp(-(dx * dx + dy * dy) / (2 * radius * radius))
         kernel /= np.sum(kernel)  # Normalize the kernel
         return kernel
 
@@ -91,10 +94,12 @@ class HeatmapWindow(arcade.Window):
                     height = SCREEN_HEIGHT / HEATMAP_RESOLUTION
                     arcade.draw_lrtb_rectangle_filled(x, x + width, y + height, y, color)
 
+
 def main():
     window = HeatmapWindow(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
     window.setup()
     arcade.run()
+
 
 if __name__ == "__main__":
     main()
