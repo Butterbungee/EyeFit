@@ -5,13 +5,13 @@ import arcade
 import arcade.gui
 from arcade.experimental.uislider import UISlider
 from arcade.gui import UIManager, UILabel, UISpace, UIBoxLayout, UIFlatButton, UITextureButton, \
-    UIAnchorWidget
+    UIAnchorWidget, UITextArea
 from arcade.gui.events import UIOnChangeEvent, UIOnClickEvent
 
 SCREEN_TITLE = "Apple Collecting Game"
 SPRITE_SCALING_APPLE = 0.1
 SPRITE_SCALING_BASKET = 0.2
-APPLE_COUNT = 10
+APPLE_COUNT = 1
 BASKET_SPEED = 5
 SPEED_INCREMENT = 1
 MAX_SPEED = 10
@@ -24,15 +24,79 @@ def draw_line(start_x, start_y, end_x, end_y, opacity):
                      6)
 
 
-def draw_point(start_x, start_y, opacity):
-    arcade.draw_circle_filled(start_x, start_y, 30, arcade.make_transparent_color(arcade.color.SMOKE, opacity))
-    arcade.draw_circle_outline(start_x, start_y, 30, arcade.make_transparent_color(arcade.color.DARK_SLATE_GRAY,
-                                                                                   opacity), 5)
+def draw_point(start_x, start_y, opacity, type):
+    if type == "normal":
+        arcade.draw_circle_filled(start_x,
+                                  start_y,
+                                  30,
+                                  arcade.make_transparent_color(arcade.color.SMOKE, opacity)
+                                  )
+        arcade.draw_circle_outline(start_x,
+                                   start_y,
+                                   30,
+                                   arcade.make_transparent_color(arcade.color.DARK_SLATE_GRAY, opacity),
+                                   5
+                                   )
+    elif type == "start":
+        arcade.draw_circle_filled(start_x,
+                                  start_y,
+                                  30,
+                                  arcade.make_transparent_color(arcade.color.PASTEL_RED, opacity))
+        arcade.draw_circle_outline(start_x,
+                                   start_y,
+                                   30,
+                                   arcade.make_transparent_color(arcade.color.DARK_SLATE_GRAY, opacity),
+                                   5
+                                   )
+    elif type == "point":
+        arcade.draw_circle_filled(start_x,
+                                  start_y,
+                                  30,
+                                  arcade.make_transparent_color(arcade.color.PASTEL_GREEN, opacity)
+                                  )
+        arcade.draw_circle_outline(start_x, start_y, 30,
+                                   arcade.make_transparent_color(arcade.color.DARK_SLATE_GRAY, opacity),
+                                   5
+                                   )
 
 
 def draw_number(start_x, start_y, index, opacity):
     arcade.draw_text(f"{index}", start_x, start_y, arcade.make_transparent_color(arcade.color.BLACK, opacity),
                      16, anchor_x="center", anchor_y="center", bold=True)
+
+
+def sign_recording(list_a):
+    flag = False
+    list_a[0] = list_a[0][0:-1] + ("start",)
+    list_a[-1] = list_a[-1][0:-1] + ("point",)
+    score = 0
+
+    # Create a copy of the list for iteration
+    listb = list_a.copy()
+
+    for _ in listb:
+        if _[3] == score:
+            flag = False
+        else:
+            flag = True
+        if flag:
+            index = list_a.index(_)
+            list_a[index] = _[0:-1] + ("start",)
+            score += 1
+
+    list_b = list_a.copy()
+    score = list_a[-1][3]
+
+    for _ in listb[::-1]:
+        if _[3] == score:
+            flag = False
+        else:
+            flag = True
+        if flag:
+            index = list_a.index(_)
+            list_a[index] = _[0:-1] + ("point",)
+            score -= 1
+    return list_a
 
 
 class Record(arcade.Section):
@@ -52,11 +116,24 @@ class Record(arcade.Section):
         self.opacity_float = .0
         self.opacity_increment = 255 / self.window.recording.__len__()
         self.opacity = 1
+        self.start_list = []
+        self.point_list = []
+
+    # def on_show_section(self):
+    #     # score = 0
+    #
+    #     # if _[3] == score:
+    #     #     print(_, self.window.recording.index(_))
+    #     #     self.start_list.append(self.window.recording.index(_))
+    #     #     score += 1
+    #     # if 0 < score == _[3]:
+    #     #     print(_, self.window.recording.index(_))
+    #     #     self.start_list.append(self.window.recording.index(_))
+    #     #     score += 1
+    #     pass
 
     def on_draw(self):
         """ Draw this section """
-
-        # Section is selected when mouse is within its boundaries
         arcade.draw_lrtb_rectangle_filled(self.left, self.right, self.top,
                                           self.bottom, arcade.color.WHITE_SMOKE)
         arcade.draw_lrtb_rectangle_outline(self.left, self.right, self.top,
@@ -64,28 +141,24 @@ class Record(arcade.Section):
         arcade.draw_text(f'{self.name}', self.left + self.FONT_SIZE,
                          self.top - self.FONT_SIZE * 2, arcade.color.BLACK, self.FONT_SIZE)
 
-        if self.window.recording[0] == (0, 0):
-            self.window.recording.pop(0)
-        else:
-            pass
         for index in range(self.window.recording.__len__()):
             self.opacity = int(self.opacity_float)
             if index == self.window.recording.__len__() - 1:
                 start_x, start_y = self.window.recording[index][0] + self.x_offset, self.window.recording[index][
                     1] + self.y_offset
-                draw_point(start_x, start_y, 255)
+                draw_point(start_x, start_y, 255, self.window.recording[index][-1])
                 draw_number(start_x, start_y, self.number_counter, 255)
 
             else:
                 start_x, start_y = self.window.recording[index][0] + self.x_offset, self.window.recording[index][
                     1] + self.y_offset
-                end_x, end_y = self.window.recording[index + 1][0] + self.x_offset, self.window.recording[index + 1][
-                    1] + self.y_offset
+                end_x, end_y = self.window.recording[index + 1][0] + self.x_offset, \
+                               self.window.recording[index + 1][1] + self.y_offset
                 if self.line_counter == index:
                     draw_line(start_x, start_y, end_x, end_y, self.opacity)
                     self.line_counter += 1
                 if self.circle_counter == index:
-                    draw_point(start_x, start_y, self.opacity)
+                    draw_point(start_x, start_y, self.opacity, "normal")
                     draw_number(start_x, start_y, self.number_counter, self.opacity)
                     self.circle_counter += 1
                     self.number_counter += 1
@@ -630,8 +703,8 @@ class AppleInstruction(arcade.View):
                                        width=self.WIDTH / 2,
                                        height=self.HEIGHT / 2
                                        )
-        self.apple_slider = UISlider(value=30,
-                                     min_value=10,
+        self.apple_slider = UISlider(value=2,
+                                     min_value=1,
                                      max_value=99,
                                      width=int(self.WIDTH / 3),
                                      height=self.OFFSET / 2
@@ -804,6 +877,9 @@ class AppleMinigame(arcade.View):
         # clear recording
         self.window.recording = []
 
+        # clear score timings
+        self.window.apple_timing = []
+
         # define screen
         left, right, bottom, top = arcade.get_viewport()
 
@@ -889,7 +965,7 @@ class AppleMinigame(arcade.View):
         self.basket_list.append(basket)
 
         # Create the apples
-        self.initial_apple_count = 10
+        self.initial_apple_count = 1
         self.apples_created = 0
         self.total_apples_to_create = self.window.apple_count
 
@@ -961,12 +1037,16 @@ class AppleMinigame(arcade.View):
             # Calculate seconds by using a modulus
             seconds = int(self.total_time) % 60
 
+            # Calculate 100s of a second
+            seconds_100s = int((self.total_time - seconds) * 100)
+
             # Use string formatting to create a new text string for our timer
-            self.timer_text.text = f"{minutes:02d}:{seconds:02d}"
+            self.timer_text.text = f"{minutes:02d}:{seconds:02d}:{seconds_100s:02d}"
             self.window.time_elapsed = self.timer_text.text
 
             if self.counter == RECORDING_SAMPLING:
-                self.window.recording.append(self.move_pointer())
+                self.window.recording.append(
+                    self.move_pointer() + (self.window.time_elapsed, self.window.total_score, "normal"))
                 self.counter = 0
 
             self.counter += 1
@@ -983,8 +1063,6 @@ class AppleMinigame(arcade.View):
                     apple.remove_from_sprite_lists()
                     self.picked_up_state = True
                     self.player_sprite.alpha = 255
-                    if self.apples_created < self.total_apples_to_create:
-                        self.create_apple()
 
             if basket_collision_list and self.picked_up_state:
                 for _ in basket_collision_list:
@@ -994,6 +1072,8 @@ class AppleMinigame(arcade.View):
                     self.window.total_score += 1
                     self.player_sprite.alpha = 0
                     self.picked_up_state = False
+                    if self.apples_created < self.total_apples_to_create:
+                        self.create_apple()
 
             if self.window.total_score == self.window.apple_count:
                 game_over_view = AppleMinigameOverView()
@@ -1030,9 +1110,13 @@ class AppleMinigameOverView(arcade.View):
     def __init__(self):
         super().__init__()
 
+        self.manager = UIManager()
+        self.manager.enable()
+
         # Screensize variables
         self.WIDTH = arcade.get_viewport()[1]
         self.HEIGHT = arcade.get_viewport()[3]
+        self.OFFSET = int(self.WIDTH * 0.08)
         self.RECORD_LEFT = int(self.WIDTH * 0.5)
         self.RECORD_BOTTOM = int(self.HEIGHT * 0.5)
         self.RECORD_WIDTH = int(self.WIDTH * 0.5)
@@ -1047,6 +1131,30 @@ class AppleMinigameOverView(arcade.View):
                                 self.RECORD_WIDTH,
                                 self.RECORD_HEIGHT,
                                 name='Recording Container'))
+
+        # Sign recording
+        for _ in self.window.recording:
+            if [_][0] == 0 and [_][1] == 0:
+                self.window.recording.pop(self.window.recording.index(_))
+                print(_)
+        self.window.recording = sign_recording(self.window.recording)
+
+        text = ""
+        # Record point timing to a separate list
+        for _ in self.window.recording:
+            if _[4] == "start" or _[4] == "point":
+                self.window.apple_timing.append(_[2:])
+                text += text + str(_[2:]) + "\n"
+
+        text_area = UITextArea(x=100,
+                               y=200,
+                               width=500,
+                               height=300,
+                               text=text,
+                               text_color=(0, 0, 0, 255),
+                               font_size=18
+                               )
+        self.manager.add(text_area.with_space_around(right=20))
 
         # add play again button
         self.button_again = self.new_button(self.BUTTON_WIDTH,
@@ -1124,6 +1232,7 @@ class AppleMinigameOverView(arcade.View):
         # draw buttons
         self.draw_button_again()
         self.draw_button_menu()
+        self.manager.draw()
 
     def on_mouse_press(self, x: int, y: int, button: int, modifiers: int):
 
@@ -1138,10 +1247,6 @@ class AppleMinigameOverView(arcade.View):
                 game_view = MenuView()
                 self.window.show_view(game_view)
 
-    def on_key_press(self, symbol: int, modifiers: int):
-        if symbol == arcade.key.ESCAPE:
-            arcade.exit()
-
 
 class GameWindow(arcade.Window):
 
@@ -1152,6 +1257,7 @@ class GameWindow(arcade.Window):
         self.total_score = 0
         self.apple_count = APPLE_COUNT
         self.recording = []
+        self.apple_timing = []
         self.time_elapsed = ""
         self.background_type = "default"
 
