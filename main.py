@@ -837,6 +837,7 @@ class AppleInstruction(arcade.View):
 
         @self.normal_background.event()
         def on_click(event: UIOnClickEvent):
+            print("Normal background set:", event)
             if self.window.background_type == "cam":
                 self.window.background_type = "default"
                 self.normal_background.texture = arcade.load_texture("resources/apple_bg_default_selected.png")
