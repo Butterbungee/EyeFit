@@ -5,7 +5,7 @@ import arcade
 import arcade.gui
 from arcade.experimental.uislider import UISlider
 from arcade.gui import UIManager, UILabel, UISpace, UIBoxLayout, UIFlatButton, UITextureButton, \
-    UIAnchorWidget, UITextArea
+    UIAnchorWidget, UITextArea, UITexturePane
 from arcade.gui.events import UIOnChangeEvent, UIOnClickEvent
 
 SCREEN_TITLE = "Apple Collecting Game"
@@ -130,12 +130,12 @@ class Record(arcade.Section):
 
         for index in range(self.window.recording.__len__()):
             self.opacity = int(self.opacity_float)
+
             if index == self.window.recording.__len__() - 1:
                 start_x, start_y = self.window.recording[index][0] + self.x_offset, self.window.recording[index][
                     1] + self.y_offset
                 draw_point(start_x, start_y, 255, self.window.recording[index][-1])
-                draw_number(start_x, start_y, self.number_counter, 255)
-
+                draw_number(start_x, start_y, self.window.recording[index][-2], 255)
             else:
                 start_x, start_y = self.window.recording[index][0] + self.x_offset, self.window.recording[index][
                     1] + self.y_offset
@@ -146,8 +146,15 @@ class Record(arcade.Section):
                     draw_line(start_x, start_y, end_x, end_y, self.opacity)
                     self.line_counter += 1
                 if self.circle_counter == index:
-                    draw_point(start_x, start_y, self.opacity, "normal")
-                    draw_number(start_x, start_y, self.number_counter, self.opacity)
+                    if self.window.recording[index][-1] == "start":
+                        draw_point(start_x, start_y, 255, "start")
+                        draw_number(start_x, start_y, self.window.recording[index][-2], 255)
+                    elif self.window.recording[index][-1] == "normal":
+                        draw_point(start_x, start_y, 10, "normal")
+                        draw_number(start_x, start_y, self.window.recording[index][-2], 10)
+                    elif self.window.recording[index][-1] == "point":
+                        draw_point(start_x, start_y, 255, "point")
+                        draw_number(start_x, start_y, self.window.recording[index][-2], 255)
                     self.circle_counter += 1
                     self.number_counter += 1
             self.opacity_float += self.opacity_increment
@@ -166,47 +173,90 @@ class Record(arcade.Section):
 class ModalSection(arcade.Section):
     """ A modal section that represents a popup that waits for user input """
 
-    def __init__(self, left: int, bottom: int, width: int, height: int, offset: int):
+    def __init__(self, left: int, bottom: int, width: int, height: int, offset: int, font_size: int):
         super().__init__(left, bottom, width, height, modal=True, enabled=False)
 
         # modal button
         self.offset = offset
 
-        self.menu_button = arcade.SpriteSolidColor(int(self.width / 2), int(self.height / 4),
-                                                   arcade.color.PASTEL_ORANGE)
-        self.menu_pos = self.left + self.width / 2, self.bottom + self.height / 4
-        self.menu_button.position = self.menu_pos
+        self.manager = UIManager()
+        self.manager.enable()
 
-        self.continue_button = arcade.SpriteSolidColor(int(self.width / 2), int(self.height / 4),
-                                                       arcade.color.PASTEL_GREEN)
-        self.continue_pos = self.left + self.width / 2, self.bottom + (self.height / 4) * 3
-        self.continue_button.position = self.continue_pos
+        # Create a vertical BoxGroup to align buttons
+        self.v_box = arcade.gui.UIBoxLayout(vertical=True)
+
+        # Create the button styles
+        self.continue_button_style = {
+            "font_name": "calibri",
+            "font_size": font_size,
+            "font_color": arcade.color.BLACK,
+            "border_color": arcade.color.BLACK,
+            "border_width": 4,
+            "bg_color": arcade.color.PASTEL_GREEN,
+            "bg_color_pressed": arcade.color.PASTEL_GREEN,
+            "border_color_pressed": arcade.color.WHITE,
+            "font_color_pressed": arcade.color.WHITE_SMOKE,
+
+        }
+        self.return_button_style = {
+            "font_name": "calibri",
+            "font_size": font_size,
+            "font_color": arcade.color.BLACK,
+            "border_color": arcade.color.BLACK,
+            "border_width": 4,
+            "bg_color": arcade.color.PASTEL_YELLOW,
+            "bg_color_pressed": arcade.color.PASTEL_YELLOW,
+            "border_color_pressed": arcade.color.WHITE,
+            "font_color_pressed": arcade.color.WHITE_SMOKE,
+
+        }
+
+        self.continue_button = arcade.gui.UIFlatButton(text="Continue",
+                                                       width=offset * 2,
+                                                       height=offset,
+                                                       style=self.continue_button_style
+                                                       )
+        self.return_button = arcade.gui.UIFlatButton(text="Return to Menu",
+                                                     width=offset * 2,
+                                                     height=offset,
+                                                     style=self.return_button_style
+                                                     )
+        self.v_box.add(self.continue_button.with_space_around(bottom=int(offset / 10)))
+        self.v_box.add(self.return_button)
+
+        @self.continue_button.event()
+        def on_click(event: UIOnClickEvent):
+            print("Continue:", event)
+            self.enabled = False
+
+        @self.return_button.event()
+        def on_click(event: UIOnClickEvent):
+            print("Return to Menu:", event)
+            view = MenuView()
+            self.window.show_view(view)
+
+        self.manager.add(UIAnchorWidget(child=self.v_box))
 
     def on_draw(self):
-        # draw modal frame and button
+        # draw modal frame and buttons
+        self.manager.draw()
+
         arcade.draw_lrtb_rectangle_filled(self.left, self.right, self.top,
                                           self.bottom, arcade.color.GRAY)
         arcade.draw_lrtb_rectangle_outline(self.left, self.right, self.top,
                                            self.bottom, arcade.color.BLACK, int(self.offset * .1))
-        self.draw_button()
+        self.manager.draw()
 
-    def draw_button(self):
-        # draws the button and button text
-        self.menu_button.draw()
-        self.continue_button.draw()
-        arcade.draw_text('Back to menu', self.menu_pos[0], self.menu_pos[1], arcade.color.BLACK,
-                         italic=True, bold=True, anchor_x="center", anchor_y="center")
-        arcade.draw_text('Continue', self.continue_pos[0], self.continue_pos[1], arcade.color.BLACK,
-                         italic=True, bold=True, anchor_x="center", anchor_y="center")
+    def on_hide_section(self):
+        self.manager.disable()
+        self.window.set_mouse_visible(False)
 
-    def on_mouse_press(self, x: float, y: float, button: int, modifiers: int):
-        """ Check if the button is pressed """
-        if self.continue_button.collides_with_point((x, y)):
+    def on_show_section(self):
+        self.window.set_mouse_visible(True)
+
+    def on_key_press(self, symbol: int, modifiers: int):
+        if symbol == arcade.key.ESCAPE:
             self.enabled = False
-        if self.menu_button.collides_with_point((x, y)):
-            self.enabled = False
-            game_view = MenuView()
-            self.window.show_view(game_view)
 
 
 class Basket(arcade.Sprite):
@@ -233,9 +283,10 @@ class Basket(arcade.Sprite):
         if not Basket.backwards:
             dest_x = self.position_list[self.cur_position][0]
             dest_y = self.position_list[self.cur_position][1]
+        # Change destination
         else:
-            dest_x = self.position_list[self.cur_position - 2][0]
-            dest_y = self.position_list[self.cur_position - 2][1]
+            dest_x = self.position_list[self.cur_position][0]
+            dest_y = self.position_list[self.cur_position][1]
 
         # X and Y diff between the two
         x_diff = dest_x - start_x
@@ -568,8 +619,12 @@ class MinigameSelect(arcade.View):
                                         height=self.BUTTON_HEIGHT,
                                         style=self.back_button_style
                                         )
-        self.apples_button = self.minigame_button("resources/minigame_apples.png")
-        self.placeholder_1 = self.minigame_button("resources/placeholder_1.png")
+        self.apples_button = self.minigame_button("resources/minigame_apples.png",
+                                                  "resources/minigame_apples_hover.png",
+                                                  "resources/minigame_apples_click.png")
+        self.placeholder_1 = self.minigame_button("resources/placeholder_1.png",
+                                                  "resources/placeholder_1_hover.png",
+                                                  "resources/placeholder_1_click.png")
 
         self.title_label = UILabel(text="Apple minigame settings and instructions", font_size=self.OFFSET / 3,
                                    text_color=arcade.color.BLACK, bold=True)
@@ -611,8 +666,10 @@ class MinigameSelect(arcade.View):
             # view = AppleInstruction()
             # self.window.show_view(view)
 
-    def minigame_button(self, texture_name):
-        return UITextureButton(texture=arcade.load_texture(texture_name),
+    def minigame_button(self, texture, texture_hover, texture_click):
+        return UITextureButton(texture=arcade.load_texture(texture),
+                               texture_hovered=arcade.load_texture(texture_hover),
+                               texture_pressed=arcade.load_texture(texture_click),
                                height=self.HEIGHT * .3,
                                width=self.WIDTH * .3)
 
@@ -691,7 +748,7 @@ class AppleInstruction(arcade.View):
                                        width=self.WIDTH / 2,
                                        height=self.HEIGHT / 2
                                        )
-        self.apple_slider = UISlider(value=2,
+        self.apple_slider = UISlider(value=8,
                                      min_value=1,
                                      max_value=99,
                                      width=int(self.WIDTH / 3),
@@ -706,10 +763,29 @@ class AppleInstruction(arcade.View):
                                     font_size=self.OFFSET / 3,
                                     text_color=arcade.color.BLACK
                                     )
-        self.cam_background = UITextureButton(texture=arcade.load_texture("resources/apple_cam.png")
-                                              )
-        self.normal_background = UITextureButton(texture=arcade.load_texture("resources/apple_default.png")
-                                                 )
+        if self.window.background_type == "cam":
+            self.cam_background = UITextureButton(
+                texture=arcade.load_texture("resources/apple_bg_cam_selected.png"),
+                texture_hovered=arcade.load_texture("resources/apple_bg_cam_selected.png"),
+                texture_pressed=arcade.load_texture("resources/apple_bg_cam_selected.png")
+            )
+            self.normal_background = UITextureButton(
+                texture=arcade.load_texture("resources/apple_bg_default.png"),
+                texture_hovered=arcade.load_texture("resources/apple_bg_default_hovered.png"),
+                texture_pressed=arcade.load_texture("resources/apple_bg_default_selected.png")
+            )
+        if self.window.background_type == "default":
+            self.cam_background = UITextureButton(
+                texture=arcade.load_texture("resources/apple_bg_cam.png"),
+                texture_hovered=arcade.load_texture("resources/apple_bg_cam_hovered.png"),
+                texture_pressed=arcade.load_texture("resources/apple_bg_cam_selected.png")
+            )
+            self.normal_background = UITextureButton(
+                texture=arcade.load_texture("resources/apple_bg_default_selected.png"),
+                texture_hovered=arcade.load_texture("resources/apple_bg_default_selected.png"),
+                texture_pressed=arcade.load_texture("resources/apple_bg_default_selected.png")
+            )
+
         self.background_label = UILabel(text="Background",
                                         font_size=self.OFFSET / 3,
                                         text_color=arcade.color.BLACK
@@ -746,6 +822,30 @@ class AppleInstruction(arcade.View):
 
         # Method for handling click events,
         # Using a decorator to handle on_click events
+
+        @self.cam_background.event()
+        def on_click(event: UIOnClickEvent):
+            print("Cam background set:", event)
+            if self.window.background_type == "default":
+                self.window.background_type = "cam"
+                self.cam_background.texture = arcade.load_texture("resources/apple_bg_cam_selected.png")
+                self.cam_background.texture_pressed = arcade.load_texture("resources/apple_bg_cam_selected.png")
+                self.cam_background.texture_hovered = arcade.load_texture("resources/apple_bg_cam_selected.png")
+                self.normal_background.texture = arcade.load_texture("resources/apple_bg_default.png")
+                self.normal_background.texture_pressed = arcade.load_texture("resources/apple_bg_default_selected.png")
+                self.normal_background.texture_hovered = arcade.load_texture("resources/apple_bg_default_hovered.png")
+
+        @self.normal_background.event()
+        def on_click(event: UIOnClickEvent):
+            if self.window.background_type == "cam":
+                self.window.background_type = "default"
+                self.normal_background.texture = arcade.load_texture("resources/apple_bg_default_selected.png")
+                self.normal_background.texture_pressed = arcade.load_texture("resources/apple_bg_default_selected.png")
+                self.normal_background.texture_hovered = arcade.load_texture("resources/apple_bg_default_selected.png")
+                self.cam_background.texture = arcade.load_texture("resources/apple_bg_cam.png")
+                self.cam_background.texture_pressed = arcade.load_texture("resources/apple_bg_cam_selected.png")
+                self.cam_background.texture_hovered = arcade.load_texture("resources/apple_bg_cam_hovered.png")
+
         @self.play_button.event()
         def on_click(event: UIOnClickEvent):
             print("Play:", event)
@@ -753,16 +853,6 @@ class AppleInstruction(arcade.View):
             view = AppleMinigame()
             view.setup()
             self.window.show_view(view)
-
-        @self.normal_background.event()
-        def on_click(event: UIOnClickEvent):
-            print("Default selected:", event)
-            self.window.background_type = "default"
-
-        @self.cam_background.event()
-        def on_click(event: UIOnClickEvent):
-            print("Cam selected:", event)
-            self.window.background_type = "cam"
 
         @self.back_button.event()
         def on_click(event: UIOnClickEvent):
@@ -792,12 +882,13 @@ class AppleMinigame(arcade.View):
     def __init__(self):
         super().__init__()
 
+        self.WIDTH = arcade.get_viewport()[1]
+        self.HEIGHT = arcade.get_viewport()[3]
+        self.OFFSET = int(self.WIDTH * OFFSET_MULTIPLIER)
+        self.FONT_SIZE = int(self.OFFSET / 4)
+
         if self.window.background_type == "cam":
             self.shape_list = None
-
-            self.WIDTH = arcade.get_viewport()[1]
-            self.HEIGHT = arcade.get_viewport()[3]
-            self.OFFSET = int(self.WIDTH * 0.08)
 
             # Calculate the diagonal of the screen
             self.DIAGONAL = int((self.WIDTH ** 2 + self.HEIGHT ** 2) ** 0.5)
@@ -810,14 +901,10 @@ class AppleMinigame(arcade.View):
             arcade.set_background_color(arcade.color.PASTEL_GREEN)
             self.text_color = arcade.color.WHITE
 
-        self.WIDTH = arcade.get_viewport()[1]
-        self.HEIGHT = arcade.get_viewport()[3]
-        self.OFFSET = int(self.WIDTH * OFFSET_MULTIPLIER)
-
         self.modal_section = ModalSection(int(self.WIDTH / 4) + self.OFFSET,
                                           int(self.HEIGHT / 3) - int(self.OFFSET / 2),
                                           int(self.WIDTH / 4) + self.OFFSET,
-                                          int(self.HEIGHT / 3) + self.OFFSET, self.OFFSET)
+                                          int(self.HEIGHT / 3) + self.OFFSET, self.OFFSET, self.FONT_SIZE)
         # Timer
         self.total_time = 0.0
         self.timer_text = arcade.Text(
@@ -925,11 +1012,18 @@ class AppleMinigame(arcade.View):
 
             self.shape_list._center_y = self.HEIGHT // 2
             self.shape_list._center_x = self.WIDTH // 2
+
         # Set up the player
-        player = self.player_sprite = arcade.Sprite("resources/apple.png",
-                                                    SPRITE_SCALING_APPLE,
-                                                    center_x=0,
-                                                    center_y=0)
+        if self.window.background_type == "cam":
+            player = self.player_sprite = arcade.Sprite("resources/cam_apple.png",
+                                                        SPRITE_SCALING_APPLE,
+                                                        center_x=0,
+                                                        center_y=0)
+        else:
+            player = self.player_sprite = arcade.Sprite("resources/apple.png",
+                                                        SPRITE_SCALING_APPLE,
+                                                        center_x=0,
+                                                        center_y=0)
 
         player.alpha = 0
         self.player_list.append(player)
@@ -966,7 +1060,10 @@ class AppleMinigame(arcade.View):
         width, height = int(arcade.get_viewport()[1]), int(arcade.get_viewport()[3])
         max_attempts = 50
         for _ in range(max_attempts):
-            apple = arcade.Sprite("resources/apple.png", SPRITE_SCALING_APPLE)
+            if self.window.background_type == "cam":
+                apple = arcade.Sprite("resources/cam_apple.png", SPRITE_SCALING_APPLE)
+            else:
+                apple = arcade.Sprite("resources/apple.png", SPRITE_SCALING_APPLE)
             apple.center_x = random.randrange(self.OFFSET, width - self.OFFSET)
             apple.center_y = random.randrange(self.OFFSET, height - self.OFFSET)
 
@@ -1089,6 +1186,14 @@ class AppleMinigame(arcade.View):
         if symbol == arcade.key.ESCAPE:
             self.modal_section.enabled = True
 
+    def on_show_view(self):
+        # hide mouse
+        self.window.set_mouse_visible(False)
+
+    def on_hide_view(self):
+        # show mouse
+        self.window.set_mouse_visible(True)
+
     def paused(self):
         if self.modal_section.enabled:
             return True
@@ -1151,31 +1256,23 @@ class AppleMinigameOverView(arcade.View):
                                 name='Recording Container'))
 
         text = ""
-        self.text_area = UITextArea(x=100,
-                                    y=200,
-                                    width=500,
-                                    height=300,
+        self.text_area = UITextArea(x=self.RECORD_OFFSET + self.RECORD_OFFSET / 2,
+                                    y=self.RECORD_OFFSET,
+                                    width=(self.WIDTH - self.RECORD_WIDTH - self.RECORD_OFFSET) / 2,
+                                    height=self.RECORD_HEIGHT - self.RECORD_OFFSET - self.RECORD_OFFSET / 2,
                                     text=text,
                                     text_color=(0, 0, 0, 255),
-                                    font_size=18
+                                    font_size=self.FONT_SIZE / 2
                                     )
-        self.manager.add(self.text_area.with_space_around(right=20))
+        bg_tex = arcade.load_texture("resources/grey_panel.png")
 
-        # add play again button
-        self.button_again = self.new_button(self.BUTTON_WIDTH,
-                                            self.BUTTON_HEIGHT,
-                                            arcade.color.PASTEL_GREEN)
-
-        self.button_again.position = (self.WIDTH * 5 / 8 - self.RECORD_OFFSET,
-                                      self.RECORD_BOTTOM - self.RECORD_OFFSET * 2)
-
-        # add back to menu button
-        self.button_menu = self.new_button(self.BUTTON_WIDTH,
-                                           self.BUTTON_HEIGHT,
-                                           arcade.color.PASTEL_YELLOW)
-
-        self.button_menu.position = (self.WIDTH * 7 / 8 - self.RECORD_OFFSET,
-                                     self.RECORD_BOTTOM - self.RECORD_OFFSET * 2)
+        self.manager.add(UITexturePane(
+            self.text_area.with_space_around(
+                top=int(self.RECORD_OFFSET / 4),
+                bottom=int(self.RECORD_OFFSET / 4)),
+            tex=bg_tex,
+            padding=(0, 0, 0, (self.RECORD_OFFSET / 3) * 2))
+        )
 
         # Create the buttons
         self.back_button = UIFlatButton(text="Back",
@@ -1189,8 +1286,8 @@ class AppleMinigameOverView(arcade.View):
                                         style=self.play_button_style
                                         )
         self.button_box = UIBoxLayout(vertical=False, align="left")
-        self.button_box.add(self.play_button.with_space_around(right=self.BUTTON_WIDTH/2,
-                                                               left=self.BUTTON_WIDTH/4)
+        self.button_box.add(self.play_button.with_space_around(right=self.BUTTON_WIDTH / 2,
+                                                               left=self.BUTTON_WIDTH / 4)
                             )
         self.button_box.add(self.back_button)
         self.manager.add(
@@ -1198,9 +1295,21 @@ class AppleMinigameOverView(arcade.View):
                 anchor_x="left",
                 anchor_y="bottom",
                 align_x=self.WIDTH * 4 / 8 - self.RECORD_OFFSET,
-                align_y=self.RECORD_BOTTOM - self.RECORD_OFFSET * 2 - self.BUTTON_WIDTH/4,
+                align_y=self.RECORD_BOTTOM - self.RECORD_OFFSET * 2 - self.BUTTON_WIDTH / 4,
                 child=self.button_box)
         )
+
+        @self.play_button.event()
+        def on_click(event: UIOnClickEvent):
+            print("Instructions:", event)
+            view = AppleInstruction()
+            self.window.show_view(view)
+
+        @self.back_button.event()
+        def on_click(event: UIOnClickEvent):
+            print("Menu:", event)
+            view = MenuView()
+            self.window.show_view(view)
 
     @staticmethod
     def new_button(width, height, color):
@@ -1225,25 +1334,12 @@ class AppleMinigameOverView(arcade.View):
         return arcade.draw_text(text, x, y, arcade.color.BLACK, font_size, width,
                                 "center", anchor_x="left", anchor_y="top", italic=True, bold=True)
 
-    def draw_button_again(self):
-        self.button_again.draw()
-        arcade.draw_text('Play again', self.WIDTH * 5 / 8 - self.RECORD_OFFSET,
-                         self.RECORD_BOTTOM - self.RECORD_OFFSET * 2,
-                         arcade.color.BLACK, 30, bold=True, anchor_x="center", anchor_y="center")
-
-    def draw_button_menu(self):
-        self.button_menu.draw()
-        arcade.draw_text('Back to menu', self.WIDTH * 7 / 8 - self.RECORD_OFFSET,
-                         self.RECORD_BOTTOM - self.RECORD_OFFSET * 2,
-                         arcade.color.BLACK, 30, bold=True, anchor_x="center", anchor_y="center")
-
     def on_show_view(self):
         # Prepare score recording
         # Sign recording
         for _ in self.window.recording:
             if [_][0] == 0 and [_][1] == 0:
                 self.window.recording.pop(self.window.recording.index(_))
-                print(_)
         self.window.recording = sign_recording(self.window.recording)
 
         # Record point timing to a separate list
@@ -1254,8 +1350,9 @@ class AppleMinigameOverView(arcade.View):
             if _[-1] == "point":
                 self.window.apple_timing.append(_[2:])
 
-        string = "".join([str(_) + "\n" for _ in self.window.apple_timing])
-        print(string)
+        string = "".join([str(_[1]) + " - " + str(_[2]) + " - time: " +
+                          f"{int(_[0]) // 60:02d}:{int(_[0]) % 60:02d}:{int((_[0] - int(_[0]) % 60) * 100):02d}" + "\n"
+                          for _ in self.window.apple_timing])
         self.text_area.text = string
 
     def on_draw(self):
@@ -1281,23 +1378,11 @@ class AppleMinigameOverView(arcade.View):
         self.draw_text(output_pixels, 0, self.HEIGHT - self.RECORD_OFFSET * 3.2, font_size / 2,
                        self.RECORD_WIDTH - self.RECORD_OFFSET)
 
-        # draw buttons
-        self.draw_button_again()
-        self.draw_button_menu()
+        # draw ui manager
         self.manager.draw()
 
-    def on_mouse_press(self, x: int, y: int, button: int, modifiers: int):
-
-        if button == 1:
-
-            if self.button_again.collides_with_point((x, y)):
-                game_view = AppleMinigame()
-                game_view.setup()
-                self.window.show_view(game_view)
-
-            if self.button_menu.collides_with_point((x, y)):
-                game_view = MenuView()
-                self.window.show_view(game_view)
+    def on_hide_view(self):
+        self.manager.disable()
 
 
 class GameWindow(arcade.Window):
@@ -1311,7 +1396,7 @@ class GameWindow(arcade.Window):
         self.recording = []
         self.apple_timing = []
         self.time_elapsed = ""
-        self.background_type = "default"
+        self.background_type = "cam"
 
     # def on_key_press(self, symbol: int, modifiers: int):
     #   if symbol == arcade.key.ESCAPE:
