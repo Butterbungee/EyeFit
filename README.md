@@ -17,4 +17,5 @@ https://github.com/Butterbungee/EyeFit/assets/130260227/c3de76f2-6beb-4937-b203-
 Orthoptic backgroud example with one apple at a time
 Updated gaze path preview - green marks the start of movement section and red(moment of scoring a point) its end
 
-https://github.com/Butterbungee/EyeFit/assets/130260227/7e314b32-0f79-486e-8648-d690fbf7c7eb
+https://github.com/Butterbungee/EyeFit/assets/130260227/15d2cad4-71e9-47a0-baa4-4c33f902b21f
+
