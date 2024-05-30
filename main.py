@@ -1,8 +1,10 @@
 import math
 import random
+import time
 
 import arcade
 import arcade.gui
+import numpy as np
 from arcade.experimental.uislider import UISlider
 from arcade.gui import UIManager, UILabel, UISpace, UIBoxLayout, UIFlatButton, UITextureButton, \
     UIAnchorWidget, UITextArea, UITexturePane
@@ -16,7 +18,11 @@ BASKET_SPEED = 5
 SPEED_INCREMENT = 1
 MAX_SPEED = 10
 OFFSET_MULTIPLIER = 0.08
-RECORDING_SAMPLING = 6  # Recording every x viewport updates
+# Number of bins in each dimension
+HEATMAP_RESOLUTION_X = 16 * 8
+HEATMAP_RESOLUTION_Y = 9 * 8
+# Radius of the effect around the mouse position in bins
+KERNEL_RADIUS = 4
 
 
 def draw_line(start_x, start_y, end_x, end_y, opacity):
@@ -99,6 +105,110 @@ def sign_recording(list_a):
     return list_a
 
 
+class Heatmap(arcade.Section):
+    """
+    A Section represents a part of the View defined by its
+    boundaries (left, bottom, etc.), Record Section acts as a container that contains the path of the players Gaze
+    """
+
+    def __init__(self, left: int, bottom: int, width: int, height: int, **kwargs):
+        super().__init__(left, bottom, width, height, **kwargs)
+        self.WIDTH = arcade.get_viewport()[1]
+        self.HEIGHT = arcade.get_viewport()[3]
+        self.RECORD_LEFT = int(self.WIDTH * 0.5)
+        self.RECORD_BOTTOM = int(self.HEIGHT * 0.5)
+        self.RECORD_WIDTH = int(self.WIDTH * 0.5)
+        self.RECORD_HEIGHT = int(self.HEIGHT * 0.5)
+        self.RECORD_OFFSET = int(self.WIDTH * 0.08)
+        self.FONT_SIZE = 16
+        self.mouse_positions = []
+        self.recording = True
+        self.mouse_inside = True
+        self.kernel = self.create_circular_gaussian_kernel(KERNEL_RADIUS)
+        self.mouse_x = 0
+        self.mouse_y = 0
+
+    @staticmethod
+    def create_circular_gaussian_kernel(radius):
+        """Creates a circular Gaussian kernel with the given radius."""
+        size = radius * 2 + 1
+        kernel = np.zeros((size, size))
+        for x in range(size):
+            for y in range(size):
+                dx = x - radius
+                dy = y - radius
+                distance = np.sqrt(dx * dx + dy * dy)
+                if distance <= radius:
+                    kernel[x, y] = np.exp(-(dx * dx + dy * dy) / (2 * radius * radius))
+        kernel /= np.sum(kernel)  # Normalize the kernel
+        return kernel
+
+    def on_draw(self):
+        """ Draw this section """
+        # arcade.start_render()
+        # if self.recording:
+        #     current_time = time.time()
+        #     if current_time - self.window.start_time > RECORDING_DURATION:
+        #         self.recording = False
+        self.draw_heatmap()
+
+        arcade.draw_lrtb_rectangle_filled(self.left,
+                                          self.right,
+                                          self.top,
+                                          self.bottom,
+                                          arcade.make_transparent_color(arcade.color.WHITE_SMOKE, 100))
+        arcade.draw_lrtb_rectangle_outline(self.left,
+                                           self.right,
+                                           self.top,
+                                           self.bottom,
+                                           arcade.make_transparent_color(arcade.color.DARK_SLATE_GRAY, 100), 5)
+
+    def draw_heatmap(self):
+        max_value = np.max(self.window.heatmap)
+        for i in range(HEATMAP_RESOLUTION_X):
+            for j in range(HEATMAP_RESOLUTION_Y):
+                value = self.window.heatmap[i, j]
+                if value > 0:
+                    color = self.get_heatmap_color(value / max_value)
+                    x = i * (self.RECORD_WIDTH / HEATMAP_RESOLUTION_X)
+                    y = j * (self.RECORD_HEIGHT / HEATMAP_RESOLUTION_Y)
+                    x += self.RECORD_LEFT - self.RECORD_OFFSET
+                    y += self.RECORD_BOTTOM - self.RECORD_OFFSET
+                    width = self.RECORD_WIDTH / HEATMAP_RESOLUTION_X
+                    height = self.RECORD_HEIGHT / HEATMAP_RESOLUTION_Y
+                    arcade.draw_lrtb_rectangle_filled(x, x + width, y + height, y, color)
+
+    @staticmethod
+    def get_heatmap_color(value):
+        """Maps a value between 0 and 1 to a color on a gradient."""
+        # Define a gradient from blue to red
+        colors = [
+            (0, 0, 255),  # Blue
+            (0, 255, 255),  # Cyan
+            (0, 255, 0),  # Green
+            (255, 255, 0),  # Yellow
+            (255, 0, 0)  # Red
+        ]
+        # Adjust the intensity of the colors
+        colors = [(int(r * 0.8), int(g * 0.8), int(b * 0.8)) for r, g, b in colors]
+
+        n = len(colors) - 1
+        idx = int(value * n)
+        t = (value * n) - idx
+
+        if idx >= n:
+            return colors[n]
+
+        r1, g1, b1 = colors[idx]
+        r2, g2, b2 = colors[idx + 1]
+
+        r = int((1 - t) * r1 + t * r2)
+        g = int((1 - t) * g1 + t * g2)
+        b = int((1 - t) * b1 + t * b2)
+
+        return r, g, b, 128
+
+
 class Record(arcade.Section):
     """
     A Section represents a part of the View defined by its
@@ -132,6 +242,25 @@ class Record(arcade.Section):
             self.opacity = int(self.opacity_float)
 
             if index == self.window.recording.__len__() - 1:
+                pass
+            else:
+                start_x, start_y = self.window.recording[index][0] + self.x_offset, self.window.recording[index][
+                    1] + self.y_offset
+                end_x = self.window.recording[index + 1][0] + self.x_offset
+                end_y = self.window.recording[index + 1][1] + self.y_offset
+
+                if self.line_counter == index:
+                    draw_line(start_x, start_y, end_x, end_y, self.opacity)
+                    self.line_counter += 1
+            self.opacity_float += self.opacity_increment
+
+        self.opacity_float = .0
+        self.opacity = 1
+
+        for index in range(self.window.recording.__len__()):
+            self.opacity = int(self.opacity_float)
+
+            if index == self.window.recording.__len__() - 1:
                 start_x, start_y = self.window.recording[index][0] + self.x_offset, self.window.recording[index][
                     1] + self.y_offset
                 draw_point(start_x, start_y, 255, self.window.recording[index][-1])
@@ -149,9 +278,6 @@ class Record(arcade.Section):
                     if self.window.recording[index][-1] == "start":
                         draw_point(start_x, start_y, 255, "start")
                         draw_number(start_x, start_y, self.window.recording[index][-2], 255)
-                    elif self.window.recording[index][-1] == "normal":
-                        draw_point(start_x, start_y, 10, "normal")
-                        draw_number(start_x, start_y, self.window.recording[index][-2], 10)
                     elif self.window.recording[index][-1] == "point":
                         draw_point(start_x, start_y, 255, "point")
                         draw_number(start_x, start_y, self.window.recording[index][-2], 255)
@@ -168,6 +294,12 @@ class Record(arcade.Section):
     def on_key_press(self, symbol: int, modifiers: int):
         if symbol == arcade.key.ESCAPE:
             arcade.exit()
+
+    def on_show_section(self):
+        Heatmap.enabled = False
+
+    def on_mouse_press(self, x: int, y: int, button: int, modifiers: int):
+        Heatmap.enabled = not Heatmap.enabled
 
 
 class ModalSection(arcade.Section):
@@ -748,7 +880,7 @@ class AppleInstruction(arcade.View):
                                        width=self.WIDTH / 2,
                                        height=self.HEIGHT / 2
                                        )
-        self.apple_slider = UISlider(value=8,
+        self.apple_slider = UISlider(value=self.window.apple_slider_value,
                                      min_value=1,
                                      max_value=99,
                                      width=int(self.WIDTH / 3),
@@ -887,6 +1019,8 @@ class AppleMinigame(arcade.View):
         self.HEIGHT = arcade.get_viewport()[3]
         self.OFFSET = int(self.WIDTH * OFFSET_MULTIPLIER)
         self.FONT_SIZE = int(self.OFFSET / 4)
+        # constant kernel for heatmap creation
+        self.kernel = self.create_circular_gaussian_kernel(KERNEL_RADIUS)
 
         if self.window.background_type == "cam":
             self.shape_list = None
@@ -930,9 +1064,6 @@ class AppleMinigame(arcade.View):
         self.player_sprite = None
         self.picked_up_state = False
 
-        # Tick counter variable - tied to FPS(60)
-        self.counter = 0
-
         # Declarations of constants
         self.pointer_x = 0
         self.pointer_y = 0
@@ -945,6 +1076,21 @@ class AppleMinigame(arcade.View):
 
         self.section_manager.add_section(self.modal_section)
 
+    @staticmethod
+    def create_circular_gaussian_kernel(radius):
+        """Creates a circular Gaussian kernel with the given radius."""
+        size = radius * 2 + 1
+        kernel = np.zeros((size, size))
+        for x in range(size):
+            for y in range(size):
+                dx = x - radius
+                dy = y - radius
+                distance = np.sqrt(dx * dx + dy * dy)
+                if distance <= radius:
+                    kernel[x, y] = np.exp(-(dx * dx + dy * dy) / (2 * radius * radius))
+        kernel /= np.sum(kernel)  # Normalize the kernel
+        return kernel
+
     def setup(self):
         """ Set up the game and initialize the variables. """
         # clear score
@@ -956,6 +1102,9 @@ class AppleMinigame(arcade.View):
 
         # clear score timings
         self.window.apple_timing = []
+
+        self.window.start_time = time.time()
+        self.window.heatmap = np.zeros((HEATMAP_RESOLUTION_X, HEATMAP_RESOLUTION_Y))
 
         # define screen
         left, right, bottom, top = arcade.get_viewport()
@@ -1131,12 +1280,11 @@ class AppleMinigame(arcade.View):
             self.timer_text.text = f"{minutes:02d}:{seconds:02d}:{seconds_100s:02d}"
             self.window.time_elapsed = self.timer_text.text
 
-            if self.counter == RECORDING_SAMPLING:
-                self.window.recording.append(
-                    self.move_pointer() + (self.total_time, self.window.total_score + 1, "normal"))
-                self.counter = 0
+            self.window.recording.append(
+                self.move_pointer() + (self.total_time, self.window.total_score + 1, "normal"))
 
-            self.counter += 1
+            self.update_heatmap(self.mouse_x, self.mouse_y)
+
             self.move_pointer()
             self.basket_list.update()
 
@@ -1165,6 +1313,21 @@ class AppleMinigame(arcade.View):
             if self.window.total_score == self.window.apple_count:
                 game_over_view = AppleMinigameOverView()
                 self.window.show_view(game_over_view)
+
+    def update_heatmap(self, x, y):
+        """Updates the heatmap with a Gaussian kernel centered at (x, y).
+        Recording process"""
+        x_bin = int(x / self.WIDTH * HEATMAP_RESOLUTION_X)
+        y_bin = int(y / self.HEIGHT * HEATMAP_RESOLUTION_Y)
+        size = self.kernel.shape[0]
+        half_size = size // 2
+
+        for i in range(size):
+            for j in range(size):
+                xi = x_bin + i - half_size
+                yj = y_bin + j - half_size
+                if 0 <= xi < HEATMAP_RESOLUTION_X and 0 <= yj < HEATMAP_RESOLUTION_Y:
+                    self.window.heatmap[xi, yj] += self.kernel[i, j]
 
     def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
         self.mouse_x = x
@@ -1254,7 +1417,12 @@ class AppleMinigameOverView(arcade.View):
                                 self.RECORD_BOTTOM - self.RECORD_OFFSET,
                                 self.RECORD_WIDTH,
                                 self.RECORD_HEIGHT,
-                                name='Recording Container'))
+                                name='Click to reveal Heatmap'))
+
+        self.add_section(Heatmap(self.RECORD_LEFT - self.RECORD_OFFSET,
+                                 self.RECORD_BOTTOM - self.RECORD_OFFSET,
+                                 self.RECORD_WIDTH,
+                                 self.RECORD_HEIGHT))
 
         text = ""
         self.text_area = UITextArea(x=self.RECORD_OFFSET + self.RECORD_OFFSET / 2,
@@ -1397,7 +1565,10 @@ class GameWindow(arcade.Window):
         self.recording = []
         self.apple_timing = []
         self.time_elapsed = ""
-        self.background_type = "cam"
+        self.apple_slider_value = 4
+        self.background_type = "default"
+        self.start_time = None
+        self.heatmap = None
 
     # def on_key_press(self, symbol: int, modifiers: int):
     #   if symbol == arcade.key.ESCAPE:
