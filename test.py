@@ -83,14 +83,36 @@ class Radar:
         self.target_angle = -math.atan2(mouse_y - CENTER_Y, mouse_x - CENTER_X) + math.pi / 2
 
 
-class MyGame(arcade.View):
+class ShieldInstruction(arcade.View):
+    def __init__(self):
+        super().__init__()
+        self.WIDTH = int(arcade.get_viewport()[1])
+        self.HEIGHT = int(arcade.get_viewport()[3])
+
+    def on_draw(self):
+        arcade.Text(
+            text="alu",
+            start_x=self.WIDTH // 2,
+            start_y=self.HEIGHT // 2 - 50,
+            font_size=100,
+            anchor_x="center",
+        )
+
+    def on_mouse_press(self, x: int, y: int, button: int, modifiers: int):
+        view = ShieldMinigame()
+        view.start_snowfall()
+        self.window.show_view(view)
+
+
+class ShieldMinigame(arcade.View):
     def __init__(self):
         super().__init__()
         self.WIDTH = int(arcade.get_viewport()[1])
         self.HEIGHT = int(arcade.get_viewport()[3])
         self.OFFSET = int(self.WIDTH * 0.08)
         self.text_color = arcade.color.WHITE
-        self.MOVEMENT_SPEED = 2
+        self.travel_time = 7
+        self.MOVEMENT_SPEED = 0
 
         self.side_list = {}
 
@@ -157,7 +179,7 @@ class MyGame(arcade.View):
 
     def add_enemy(self):
         """ Add a new enemy sprite that starts just outside the screen and heads to the center. """
-        enemy_sprite = arcade.Sprite(":resources:images/space_shooter/meteorGrey_med1.png", SPRITE_SCALE*4)
+        enemy_sprite = arcade.Sprite(":resources:images/space_shooter/meteorGrey_med1.png", SPRITE_SCALE * 4)
         if len(self.side_list) == 0:
             self.side_list = {"left", "right", "top", "bottom"}
         side = random.choice(list(self.side_list))
@@ -166,20 +188,15 @@ class MyGame(arcade.View):
         if side == "left":
             enemy_sprite.center_x = -enemy_sprite.width // 2
             enemy_sprite.center_y = random.randint(0, SCREEN_HEIGHT)
-            self.MOVEMENT_SPEED = 2
         elif side == "right":
             enemy_sprite.center_x = SCREEN_WIDTH + enemy_sprite.width // 2
             enemy_sprite.center_y = random.randint(0, SCREEN_HEIGHT)
-            self.MOVEMENT_SPEED = 2
         elif side == "top":
             enemy_sprite.center_x = random.randint(0, SCREEN_WIDTH)
             enemy_sprite.center_y = SCREEN_HEIGHT + enemy_sprite.height // 2
-            self.MOVEMENT_SPEED = 1
-
         else:  # "bottom"
             enemy_sprite.center_x = random.randint(0, SCREEN_WIDTH)
             enemy_sprite.center_y = -enemy_sprite.height // 2
-            self.MOVEMENT_SPEED = 1
 
         # Calculate the angle to the center
         dest_x = SCREEN_WIDTH // 2
@@ -188,7 +205,11 @@ class MyGame(arcade.View):
         y_diff = dest_y - enemy_sprite.center_y
         angle = math.atan2(y_diff, x_diff)
 
+        # Calculate distance to the center
+        distance = arcade.get_distance_between_sprites(enemy_sprite, self.ship)
+
         # Set the enemy velocity
+        self.MOVEMENT_SPEED = distance / (self.travel_time * 60)
         enemy_sprite.change_x = self.MOVEMENT_SPEED * math.cos(angle)
         enemy_sprite.change_y = self.MOVEMENT_SPEED * math.sin(angle)
 
@@ -225,8 +246,6 @@ class MyGame(arcade.View):
         arcade.draw_text(text=output, start_x=self.WIDTH / 2, start_y=self.HEIGHT / 2 - self.OFFSET,
                          color=self.text_color, font_size=25,
                          anchor_x="center", anchor_y="top")
-
-
 
     def on_update(self, delta_time):
         # Gradually adjust the snowfall speed
@@ -324,7 +343,7 @@ class MyGame(arcade.View):
 class GameWindow(arcade.Window):
 
     def __init__(self):
-        super().__init__(title="EyeFit", resizable=False, fullscreen=True)
+        super().__init__(title="EyeFit", resizable=False, fullscreen=True, )
         self.background_type = "default"
         self.tracking = False
         self.total_score = 0
@@ -332,10 +351,9 @@ class GameWindow(arcade.Window):
 
 def main():
     window = GameWindow()
-    view = MyGame()
+    view = ShieldInstruction()
     window.set_mouse_visible(True)
     window.show_view(view)
-    view.start_snowfall()
     arcade.run()
 
 

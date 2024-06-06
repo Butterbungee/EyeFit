@@ -23,6 +23,12 @@ HEATMAP_RESOLUTION_X = 16 * 8
 HEATMAP_RESOLUTION_Y = 9 * 8
 # Radius of the effect around the mouse position in bins
 KERNEL_RADIUS = 4
+SPRITE_SCALE = .5
+RADIANS_PER_FRAME = 0.04
+SCREEN_WIDTH = 1920
+SCREEN_HEIGHT = 1080
+CENTER_X = SCREEN_WIDTH // 2
+CENTER_Y = SCREEN_HEIGHT // 2
 
 
 def draw_line(start_x, start_y, end_x, end_y, opacity):
@@ -103,6 +109,74 @@ def sign_recording(list_a):
             list_a[index] = _[0:-1] + ("point",)
             score -= 1
     return list_a
+
+
+class RotatingSprite(arcade.Sprite):
+    def __init__(self, texture: str, scale):
+        super().__init__()
+        self.texture = arcade.load_texture(texture)
+        self.scale = scale
+        self.angle = 0
+        self.target_angle = 0
+
+    def set_rotation(self, angle):
+        # If change_angle is true, change the sprite's angle
+        self.angle = angle
+
+
+class Snowflake:
+    def __init__(self):
+        self.WIDTH = int(arcade.get_viewport()[1])
+        self.HEIGHT = int(arcade.get_viewport()[3])
+        self.x = 0
+        self.y = 0
+
+    def reset_pos(self):
+        # Reset flake to random position above screen
+        self.y = random.randrange(self.HEIGHT, self.HEIGHT + 100)
+        self.x = random.randrange(self.WIDTH)
+
+
+class Radar:
+    def __init__(self):
+        self.WIDTH = int(arcade.get_viewport()[1])
+        self.HEIGHT = int(arcade.get_viewport()[3])
+        self.OFFSET = int(self.WIDTH * 0.08) * 2
+        self.angle = 0
+        self.target_angle = 0
+
+    def update(self):
+        # Move the angle of the sweep towards the target angle.
+        angle_diff = self.target_angle - self.angle
+
+        # Ensure the shortest rotation direction
+        if angle_diff > math.pi:
+            angle_diff -= 2 * math.pi
+        elif angle_diff < -math.pi:
+            angle_diff += 2 * math.pi
+
+        self.angle += angle_diff * RADIANS_PER_FRAME
+
+        # Normalize the angle to keep it between 0 and 2 * math.pi
+        self.angle %= 2 * math.pi
+
+    def get_coordinates(self, element: str):
+        """available elements are: "shield", "left", "right" """
+        if element == "shield":
+            x = self.OFFSET * math.sin(self.angle) + CENTER_X
+            y = self.OFFSET * math.cos(self.angle) + CENTER_Y
+            return x, y
+        if element == "left":
+            x = self.OFFSET * math.sin(self.angle - SPRITE_SCALE) + CENTER_X
+            y = self.OFFSET * math.cos(self.angle - SPRITE_SCALE) + CENTER_Y
+            return x, y
+        if element == "right":
+            x = self.OFFSET * math.sin(self.angle + SPRITE_SCALE) + CENTER_X
+            y = self.OFFSET * math.cos(self.angle + SPRITE_SCALE) + CENTER_Y
+            return x, y
+
+    def update_target_angle(self, mouse_x, mouse_y):
+        self.target_angle = -math.atan2(mouse_y - CENTER_Y, mouse_x - CENTER_X) + math.pi / 2
 
 
 class Heatmap(arcade.Section):
@@ -754,15 +828,15 @@ class MinigameSelect(arcade.View):
         self.apples_button = self.minigame_button("resources/minigame_apples.png",
                                                   "resources/minigame_apples_hover.png",
                                                   "resources/minigame_apples_click.png")
-        self.placeholder_1 = self.minigame_button("resources/placeholder_1.png",
-                                                  "resources/placeholder_1_hover.png",
-                                                  "resources/placeholder_1_click.png")
+        self.shield_button = self.minigame_button("resources/minigame_shield.png",
+                                                  "resources/minigame_shield_hover.png",
+                                                  "resources/minigame_shield_click.png")
 
         self.title_label = UILabel(text="Apple minigame settings and instructions", font_size=self.OFFSET / 3,
                                    text_color=arcade.color.BLACK, bold=True)
 
         self.h_row_1.add(self.apples_button.with_space_around(10, 10, 10, 10))
-        self.h_row_1.add(self.placeholder_1.with_space_around(10, 10, 10, 10))
+        self.h_row_1.add(self.shield_button.with_space_around(10, 10, 10, 10))
 
         self.v_box.add(self.title_label.with_space_around(bottom=self.OFFSET / 3))
         self.v_box.add(self.h_row_1)
@@ -792,11 +866,11 @@ class MinigameSelect(arcade.View):
             view = AppleInstruction()
             self.window.show_view(view)
 
-        @self.placeholder_1.event()
+        @self.shield_button.event()
         def on_click(event: UIOnClickEvent):
-            print("Placeholder_1:", event)
-            # view = AppleInstruction()
-            # self.window.show_view(view)
+            print("Shield:", event)
+            view = ShieldInstruction()
+            self.window.show_view(view)
 
     def minigame_button(self, texture, texture_hover, texture_click):
         return UITextureButton(texture=arcade.load_texture(texture),
@@ -816,7 +890,6 @@ class MinigameSelect(arcade.View):
 class AppleInstruction(arcade.View):
     def __init__(self):
         super().__init__()
-
         self.WIDTH = arcade.get_viewport()[1]
         self.HEIGHT = arcade.get_viewport()[3]
         self.OFFSET = int(self.WIDTH * OFFSET_MULTIPLIER)
@@ -897,9 +970,9 @@ class AppleInstruction(arcade.View):
                                     )
         if self.window.background_type == "cam":
             self.cam_background = UITextureButton(
-                texture=arcade.load_texture("resources/apple_bg_cam_selected.png"),
-                texture_hovered=arcade.load_texture("resources/apple_bg_cam_selected.png"),
-                texture_pressed=arcade.load_texture("resources/apple_bg_cam_selected.png")
+                texture=arcade.load_texture("resources/bg_cam_selected.png"),
+                texture_hovered=arcade.load_texture("resources/bg_cam_selected.png"),
+                texture_pressed=arcade.load_texture("resources/bg_cam_selected.png")
             )
             self.normal_background = UITextureButton(
                 texture=arcade.load_texture("resources/apple_bg_default.png"),
@@ -908,9 +981,9 @@ class AppleInstruction(arcade.View):
             )
         if self.window.background_type == "default":
             self.cam_background = UITextureButton(
-                texture=arcade.load_texture("resources/apple_bg_cam.png"),
-                texture_hovered=arcade.load_texture("resources/apple_bg_cam_hovered.png"),
-                texture_pressed=arcade.load_texture("resources/apple_bg_cam_selected.png")
+                texture=arcade.load_texture("resources/bg_cam.png"),
+                texture_hovered=arcade.load_texture("resources/bg_cam_hovered.png"),
+                texture_pressed=arcade.load_texture("resources/bg_cam_selected.png")
             )
             self.normal_background = UITextureButton(
                 texture=arcade.load_texture("resources/apple_bg_default_selected.png"),
@@ -960,9 +1033,9 @@ class AppleInstruction(arcade.View):
             print("Cam background set:", event)
             if self.window.background_type == "default":
                 self.window.background_type = "cam"
-                self.cam_background.texture = arcade.load_texture("resources/apple_bg_cam_selected.png")
-                self.cam_background.texture_pressed = arcade.load_texture("resources/apple_bg_cam_selected.png")
-                self.cam_background.texture_hovered = arcade.load_texture("resources/apple_bg_cam_selected.png")
+                self.cam_background.texture = arcade.load_texture("resources/bg_cam_selected.png")
+                self.cam_background.texture_pressed = arcade.load_texture("resources/bg_cam_selected.png")
+                self.cam_background.texture_hovered = arcade.load_texture("resources/bg_cam_selected.png")
                 self.normal_background.texture = arcade.load_texture("resources/apple_bg_default.png")
                 self.normal_background.texture_pressed = arcade.load_texture("resources/apple_bg_default_selected.png")
                 self.normal_background.texture_hovered = arcade.load_texture("resources/apple_bg_default_hovered.png")
@@ -975,9 +1048,9 @@ class AppleInstruction(arcade.View):
                 self.normal_background.texture = arcade.load_texture("resources/apple_bg_default_selected.png")
                 self.normal_background.texture_pressed = arcade.load_texture("resources/apple_bg_default_selected.png")
                 self.normal_background.texture_hovered = arcade.load_texture("resources/apple_bg_default_selected.png")
-                self.cam_background.texture = arcade.load_texture("resources/apple_bg_cam.png")
-                self.cam_background.texture_pressed = arcade.load_texture("resources/apple_bg_cam_selected.png")
-                self.cam_background.texture_hovered = arcade.load_texture("resources/apple_bg_cam_hovered.png")
+                self.cam_background.texture = arcade.load_texture("resources/bg_cam.png")
+                self.cam_background.texture_pressed = arcade.load_texture("resources/bg_cam_selected.png")
+                self.cam_background.texture_hovered = arcade.load_texture("resources/bg_cam_hovered.png")
 
         @self.play_button.event()
         def on_click(event: UIOnClickEvent):
@@ -1001,6 +1074,7 @@ class AppleInstruction(arcade.View):
 
     def on_show_view(self):
         arcade.set_background_color(arcade.color.PASTEL_ORANGE)
+        self.window.last_view = self.window.current_view
 
     def on_draw(self):
         self.clear()
@@ -1014,7 +1088,6 @@ class AppleInstruction(arcade.View):
 class AppleMinigame(arcade.View):
     def __init__(self):
         super().__init__()
-
         self.WIDTH = arcade.get_viewport()[1]
         self.HEIGHT = arcade.get_viewport()[3]
         self.OFFSET = int(self.WIDTH * OFFSET_MULTIPLIER)
@@ -1367,7 +1440,6 @@ class AppleMinigameOverView(arcade.View):
 
     def __init__(self):
         super().__init__()
-
         self.manager = UIManager()
         self.manager.enable()
 
@@ -1470,9 +1542,15 @@ class AppleMinigameOverView(arcade.View):
 
         @self.play_button.event()
         def on_click(event: UIOnClickEvent):
-            print("Instructions:", event)
-            view = AppleInstruction()
-            self.window.show_view(view)
+            print("Replay:", event)
+            if "Apple" in str(self.window.last_view):
+                view = AppleInstruction()
+                print(view)
+                self.window.show_view(view)
+            if "Shield" in str(self.window.last_view):
+                view = ShieldInstruction()
+                print(view)
+                self.window.show_view(view)
 
         @self.back_button.event()
         def on_click(event: UIOnClickEvent):
@@ -1554,21 +1632,533 @@ class AppleMinigameOverView(arcade.View):
         self.manager.disable()
 
 
+class ShieldInstruction(arcade.View):
+    def __init__(self):
+        super().__init__()
+        self.WIDTH = arcade.get_viewport()[1]
+        self.HEIGHT = arcade.get_viewport()[3]
+        self.OFFSET = int(self.WIDTH * OFFSET_MULTIPLIER)
+        print("offset is ", self.OFFSET)
+        self.BUTTON_WIDTH = self.WIDTH / 6
+        self.BUTTON_HEIGHT = self.HEIGHT / 6
+        self.FONT_SIZE = int(self.OFFSET / 4)
+
+        # --- Required for all code that uses UI element,
+        # a UIManager to handle the UI.
+        self.manager = UIManager()
+        self.manager.enable()
+
+        # Create a vertical BoxGroups to align buttons
+        self.vertical_box = arcade.gui.UIBoxLayout(vertical=True)
+        self.horizontal_box = arcade.gui.UIBoxLayout(vertical=False)
+        self.right_box = arcade.gui.UIBoxLayout(vertical=True)
+        self.left_box = arcade.gui.UIBoxLayout(vertical=True)
+        self.slider_box = arcade.gui.UIBoxLayout(vertical=False)
+        self.background_box = arcade.gui.UIBoxLayout(vertical=False)
+        self.button_box = arcade.gui.UIBoxLayout(vertical=False)
+
+        # Create the button style
+        self.play_button_style = {
+            "font_name": "calibri",
+            "font_size": self.FONT_SIZE,
+            "font_color": arcade.color.BLACK,
+            "border_color": arcade.color.BLACK,
+            "border_width": 4,
+            "bg_color": arcade.color.PASTEL_GREEN,
+            "bg_color_pressed": arcade.color.PASTEL_GREEN,
+            "border_color_pressed": arcade.color.WHITE,
+            "font_color_pressed": arcade.color.WHITE_SMOKE,
+
+        }
+        self.back_button_style = {
+            "font_name": "calibri",
+            "font_size": self.FONT_SIZE,
+            "font_color": arcade.color.BLACK,
+            "border_color": arcade.color.BLACK,
+            "border_width": 4,
+            "bg_color": arcade.color.PASTEL_YELLOW,
+            "bg_color_pressed": arcade.color.PASTEL_YELLOW,
+            "border_color_pressed": arcade.color.WHITE,
+            "font_color_pressed": arcade.color.WHITE_SMOKE,
+
+        }
+
+        # Create the buttons
+        self.back_button = UIFlatButton(text="Back",
+                                        width=self.BUTTON_WIDTH,
+                                        height=self.BUTTON_HEIGHT,
+                                        style=self.back_button_style
+                                        )
+        self.play_button = UIFlatButton(text="Play",
+                                        width=self.BUTTON_WIDTH,
+                                        height=self.BUTTON_HEIGHT,
+                                        style=self.play_button_style
+                                        )
+        self.gif_button = UIFlatButton(text="Gif",
+                                       width=self.WIDTH / 2,
+                                       height=self.HEIGHT / 2
+                                       )
+        self.apple_slider = UISlider(value=self.window.apple_slider_value,
+                                     min_value=1,
+                                     max_value=99,
+                                     width=int(self.WIDTH / 3),
+                                     height=self.OFFSET / 2
+                                     )
+        self.number = UILabel(text=f"{int(self.apple_slider.value):02.0f}",
+                              font_size=self.OFFSET / 3,
+                              text_color=arcade.color.BLACK
+                              )
+
+        self.slider_label = UILabel(text="Number of meteors",
+                                    font_size=self.OFFSET / 3,
+                                    text_color=arcade.color.BLACK
+                                    )
+        if self.window.background_type == "cam":
+            self.cam_background = UITextureButton(
+                texture=arcade.load_texture("resources/bg_cam_selected.png"),
+                texture_hovered=arcade.load_texture("resources/bg_cam_selected.png"),
+                texture_pressed=arcade.load_texture("resources/bg_cam_selected.png")
+            )
+            self.normal_background = UITextureButton(
+                texture=arcade.load_texture("resources/shield_bg_default.png"),
+                texture_hovered=arcade.load_texture("resources/shield_bg_default_hovered.png"),
+                texture_pressed=arcade.load_texture("resources/shield_bg_default_selected.png")
+            )
+        if self.window.background_type == "default":
+            self.cam_background = UITextureButton(
+                texture=arcade.load_texture("resources/bg_cam.png"),
+                texture_hovered=arcade.load_texture("resources/bg_cam_hovered.png"),
+                texture_pressed=arcade.load_texture("resources/bg_cam_selected.png")
+            )
+            self.normal_background = UITextureButton(
+                texture=arcade.load_texture("resources/shield_bg_default_selected.png"),
+                texture_hovered=arcade.load_texture("resources/shield_bg_default_selected.png"),
+                texture_pressed=arcade.load_texture("resources/shield_bg_default_selected.png")
+            )
+
+        self.background_label = UILabel(text="Background",
+                                        font_size=self.OFFSET / 3,
+                                        text_color=arcade.color.BLACK
+                                        )
+        self.title_label = UILabel(text="Shield minigame settings and instructions",
+                                   font_size=self.OFFSET / 3,
+                                   text_color=arcade.color.BLACK
+                                   )
+
+        self.button_box.add(self.play_button.with_space_around(right=self.BUTTON_WIDTH / 4))
+        self.button_box.add(self.back_button.with_space_around(left=self.BUTTON_WIDTH / 4))
+        self.right_box.add(self.gif_button.with_space_around(bottom=self.OFFSET / 2))
+        self.right_box.add(self.button_box)
+        self.slider_box.add(self.apple_slider)
+        self.slider_box.add(self.number)
+        self.background_box.add(self.normal_background.with_space_around(right=self.OFFSET / 4))
+        self.background_box.add(self.cam_background.with_space_around(left=self.OFFSET / 4))
+        self.left_box.add(self.background_label)
+        self.left_box.add(self.background_box.with_space_around(bottom=self.OFFSET))
+        self.left_box.add(self.slider_label)
+        self.left_box.add(self.slider_box)
+        self.horizontal_box.add(self.left_box.with_space_around(right=self.OFFSET / 4))
+        self.horizontal_box.add(self.right_box.with_space_around(left=self.OFFSET / 4))
+        self.vertical_box.add(self.title_label.with_space_around(bottom=self.OFFSET / 2))
+        self.vertical_box.add(self.horizontal_box)
+
+        # Create a widget to hold the v_box widget, that will center the buttons
+        self.manager.add(
+            UIAnchorWidget(
+                anchor_x="center_x",
+                anchor_y="center_y",
+                child=self.vertical_box)
+        )
+
+        # Method for handling click events,
+        # Using a decorator to handle on_click events
+
+        @self.cam_background.event()
+        def on_click(event: UIOnClickEvent):
+            print("Cam background set:", event)
+            if self.window.background_type == "default":
+                self.window.background_type = "cam"
+                self.cam_background.texture = arcade.load_texture("resources/bg_cam_selected.png")
+                self.cam_background.texture_pressed = arcade.load_texture("resources/bg_cam_selected.png")
+                self.cam_background.texture_hovered = arcade.load_texture("resources/bg_cam_selected.png")
+                self.normal_background.texture = arcade.load_texture("resources/shield_bg_default.png")
+                self.normal_background.texture_pressed = arcade.load_texture("resources/shield_bg_default_selected.png")
+                self.normal_background.texture_hovered = arcade.load_texture("resources/shield_bg_default_hovered.png")
+
+        @self.normal_background.event()
+        def on_click(event: UIOnClickEvent):
+            print("Normal background set:", event)
+            if self.window.background_type == "cam":
+                self.window.background_type = "default"
+                self.normal_background.texture = arcade.load_texture("resources/shield_bg_default_selected.png")
+                self.normal_background.texture_pressed = arcade.load_texture("resources/shield_bg_default_selected.png")
+                self.normal_background.texture_hovered = arcade.load_texture("resources/shield_bg_default_selected.png")
+                self.cam_background.texture = arcade.load_texture("resources/bg_cam.png")
+                self.cam_background.texture_pressed = arcade.load_texture("resources/bg_cam_selected.png")
+                self.cam_background.texture_hovered = arcade.load_texture("resources/bg_cam_hovered.png")
+
+        @self.play_button.event()
+        def on_click(event: UIOnClickEvent):
+            print("Play:", event)
+            self.window.enemy_count = int(self.apple_slider.value)
+            view = ShieldMinigame()
+            view.setup()
+            self.window.show_view(view)
+
+        @self.back_button.event()
+        def on_click(event: UIOnClickEvent):
+            print("Back:", event)
+            view = MinigameSelect()
+            self.window.show_view(view)
+
+        @self.apple_slider.event()
+        def on_change(event: UIOnChangeEvent):
+            print("Shield Slider Change:", event)
+            self.number.text = f"{int(self.apple_slider.value):02.0f}"
+            self.number.fit_content()
+
+    def on_show_view(self):
+        arcade.set_background_color(arcade.color.DARK_PASTEL_BLUE)
+        self.window.last_view = self.window.current_view
+
+    def on_draw(self):
+        self.clear()
+        self.manager.draw()
+
+    def on_hide_view(self):
+        self.manager.disable()
+
+
+class ShieldMinigame(arcade.View):
+    def __init__(self):
+        super().__init__()
+        self.MOVEMENT_SPEED = None
+        self.WIDTH = int(arcade.get_viewport()[1])
+        self.HEIGHT = int(arcade.get_viewport()[3])
+        self.OFFSET = int(self.WIDTH * 0.08)
+        self.text_color = arcade.color.WHITE
+        self.travel_time = 7
+        self.FONT_SIZE = int(self.OFFSET / 4)
+
+        # Timer
+        self.total_time = 0.0
+
+        self.side_list = {}
+
+        self.radar = Radar()
+        self.shield = RotatingSprite("resources/shield.png", SPRITE_SCALE)
+        self.ship = arcade.Sprite("resources/ship.png", SPRITE_SCALE)
+        self.left = arcade.Sprite("resources/left.png", SPRITE_SCALE)
+        self.right = arcade.Sprite("resources/right.png", SPRITE_SCALE)
+        self.player_sprite = arcade.SpriteCircle(50, (0, 0, 0))
+
+        # Sprite lists
+        self.snowflake_list = None
+        self.shield_sprite_list = arcade.SpriteList()
+        self.ship_sprite_list = arcade.SpriteList()
+        self.left_sprite_list = arcade.SpriteList()
+        self.right_sprite_list = arcade.SpriteList()
+        self.enemy_list = arcade.SpriteList()
+
+        self.ship_sprite_list.extend([self.ship])
+        self.shield_sprite_list.extend([self.shield])
+        self.left_sprite_list.extend([self.left])
+        self.right_sprite_list.extend([self.right])
+
+        # Declarations of constants
+        self.pointer_x = 0
+        self.pointer_y = 0
+
+        self.mouse_x = 0
+        self.mouse_y = 0
+
+        self.deadzone_radius = 50
+        self.pointer_radius = 50
+
+        # Snowfall control variables
+        self.snowfall_active = True
+        self.snowfall_speed_multiplier = 1.0
+
+        self.kernel = self.create_circular_gaussian_kernel(KERNEL_RADIUS)
+
+        self.modal_section = ModalSection(int(self.WIDTH / 4) + self.OFFSET,
+                                          int(self.HEIGHT / 3) - int(self.OFFSET / 2),
+                                          int(self.WIDTH / 4) + self.OFFSET,
+                                          int(self.HEIGHT / 3) + self.OFFSET, self.OFFSET, self.FONT_SIZE)
+
+        # Set background color
+        arcade.set_background_color(arcade.color.DARK_MIDNIGHT_BLUE)
+
+        self.section_manager.add_section(self.modal_section)
+
+    @staticmethod
+    def create_circular_gaussian_kernel(radius):
+        """Creates a circular Gaussian kernel with the given radius."""
+        size = radius * 2 + 1
+        kernel = np.zeros((size, size))
+        for x in range(size):
+            for y in range(size):
+                dx = x - radius
+                dy = y - radius
+                distance = np.sqrt(dx * dx + dy * dy)
+                if distance <= radius:
+                    kernel[x, y] = np.exp(-(dx * dx + dy * dy) / (2 * radius * radius))
+        kernel /= np.sum(kernel)  # Normalize the kernel
+        return kernel
+
+    def setup(self):
+        """ Set up the game and initialize the variables. """
+        # clear score
+        self.window.total_score = 0
+        self.start_snowfall()
+        # clear recording
+        self.window.recording = []
+        # Timer
+        self.total_time = 0.0
+
+        self.window.heatmap = np.zeros((HEATMAP_RESOLUTION_X, HEATMAP_RESOLUTION_Y))
+
+    def update_heatmap(self, x, y):
+        """Updates the heatmap with a Gaussian kernel centered at (x, y).
+        Recording process"""
+        x_bin = int(x / self.WIDTH * HEATMAP_RESOLUTION_X)
+        y_bin = int(y / self.HEIGHT * HEATMAP_RESOLUTION_Y)
+        size = self.kernel.shape[0]
+        half_size = size // 2
+
+        for i in range(size):
+            for j in range(size):
+                xi = x_bin + i - half_size
+                yj = y_bin + j - half_size
+                if 0 <= xi < HEATMAP_RESOLUTION_X and 0 <= yj < HEATMAP_RESOLUTION_Y:
+                    self.window.heatmap[xi, yj] += self.kernel[i, j]
+
+    def start_snowfall(self):
+        """ Set up snowfall and initialize variables. """
+        self.snowflake_list = []
+
+        for i in range(50):
+            # Create snowflake instance
+            snowflake = Snowflake()
+
+            # Randomly position snowflake
+            snowflake.x = random.randrange(self.WIDTH)
+            snowflake.y = random.randrange(self.HEIGHT + 200)
+
+            # Set other variables for the snowflake
+            snowflake.size = random.randrange(4)
+            snowflake.speed = random.randrange(80, 120)
+            snowflake.angle = random.uniform(math.pi, math.pi * 2)
+
+            # Add snowflake to snowflake list
+            self.snowflake_list.append(snowflake)
+
+    def add_enemy(self):
+        """ Add a new enemy sprite that starts just outside the screen and heads to the center. """
+        enemy_sprite = arcade.Sprite(":resources:images/space_shooter/meteorGrey_med1.png", SPRITE_SCALE * 4)
+        if len(self.side_list) == 0:
+            self.side_list = {"left", "right", "top", "bottom"}
+        side = random.choice(list(self.side_list))
+        self.side_list.remove(side)
+
+        if side == "left":
+            enemy_sprite.center_x = -enemy_sprite.width // 2
+            enemy_sprite.center_y = random.randint(0, SCREEN_HEIGHT)
+        elif side == "right":
+            enemy_sprite.center_x = SCREEN_WIDTH + enemy_sprite.width // 2
+            enemy_sprite.center_y = random.randint(0, SCREEN_HEIGHT)
+        elif side == "top":
+            enemy_sprite.center_x = random.randint(0, SCREEN_WIDTH)
+            enemy_sprite.center_y = SCREEN_HEIGHT + enemy_sprite.height // 2
+        else:  # "bottom"
+            enemy_sprite.center_x = random.randint(0, SCREEN_WIDTH)
+            enemy_sprite.center_y = -enemy_sprite.height // 2
+
+        # Calculate the angle to the center
+        dest_x = SCREEN_WIDTH // 2
+        dest_y = SCREEN_HEIGHT // 2
+        x_diff = dest_x - enemy_sprite.center_x
+        y_diff = dest_y - enemy_sprite.center_y
+        angle = math.atan2(y_diff, x_diff)
+
+        # Calculate distance to the center
+        distance = arcade.get_distance_between_sprites(enemy_sprite, self.ship)
+
+        # Set the enemy velocity
+        self.MOVEMENT_SPEED = distance / (self.travel_time * 60)
+        enemy_sprite.change_x = self.MOVEMENT_SPEED * math.cos(angle)
+        enemy_sprite.change_y = self.MOVEMENT_SPEED * math.sin(angle)
+
+        self.enemy_list.append(enemy_sprite)
+
+    def on_draw(self):
+        # Clear screen
+        self.clear()
+        arcade.start_render()
+
+        # Draw Default background
+        if self.window.background_type == "default":
+            for snowflake in self.snowflake_list:
+                arcade.draw_circle_filled(snowflake.x, snowflake.y, snowflake.size, arcade.color.WHITE)
+
+        arcade.draw_circle_outline(self.WIDTH // 2, self.HEIGHT // 2, self.OFFSET * 2,
+                                   arcade.make_transparent_color(arcade.color.PASTEL_VIOLET, 100),
+                                   border_width=5, num_segments=40)
+
+        self.ship_sprite_list.draw()
+        # Draw shield sprite
+        self.shield_sprite_list.draw()
+        # Draw left sprite
+        self.left_sprite_list.draw()
+        # Draw right sprite
+        self.right_sprite_list.draw()
+        # Draw enemy sprites
+        self.enemy_list.draw()
+
+        arcade.draw_circle_outline(self.pointer_x, self.pointer_y, self.pointer_radius, arcade.color.PASTEL_VIOLET,
+                                   border_width=3, num_segments=40)
+
+        output = f"Score: {self.window.total_score}"
+        arcade.draw_text(text=output, start_x=self.WIDTH / 2, start_y=self.HEIGHT / 2 - self.OFFSET,
+                         color=self.text_color, font_size=25,
+                         anchor_x="center", anchor_y="top")
+
+    def on_update(self, delta_time):
+        if self.paused():
+            pass
+        else:
+            # Gradually adjust the snowfall speed
+            if self.snowfall_active:
+                if self.snowfall_speed_multiplier < 1.0:
+                    self.snowfall_speed_multiplier += .01
+                    print(self.snowfall_speed_multiplier)
+            else:
+                if self.snowfall_speed_multiplier > 0.0:
+                    self.snowfall_speed_multiplier -= .01
+                    print(self.snowfall_speed_multiplier)
+
+            # Animate all the snowflakes falling
+            for snowflake in self.snowflake_list:
+                snowflake.y -= snowflake.speed * delta_time * self.snowfall_speed_multiplier
+
+                # Check if snowflake has fallen below screen
+                if snowflake.y < 0:
+                    snowflake.reset_pos()
+
+            # Update the radar
+            self.radar.update()
+
+            # Timer
+            self.total_time += delta_time
+
+            # noinspection PyTypeChecker
+            self.window.recording.append(
+                self.move_pointer() + (self.total_time, self.window.total_score + 1, "normal"))
+
+            self.update_heatmap(self.mouse_x, self.mouse_y)
+
+            # Update the shield position
+            shield_x, shield_y = self.radar.get_coordinates("shield")
+            self.shield.center_x = shield_x
+            self.shield.center_y = shield_y
+            self.shield.angle = -math.degrees(self.radar.angle)
+
+            # Update the left position
+            left_x, left_y = self.radar.get_coordinates("left")
+            self.left.center_x = left_x
+            self.left.center_y = left_y
+            self.left.angle = -math.degrees(self.radar.angle)
+
+            # Update the right position
+            right_x, right_y = self.radar.get_coordinates("right")
+            self.right.center_x = right_x
+            self.right.center_y = right_y
+            self.right.angle = -math.degrees(self.radar.angle)
+
+            self.ship.center_x = CENTER_X
+            self.ship.center_y = CENTER_Y
+
+            self.move_pointer()
+
+            if not self.enemy_list:
+                self.add_enemy()
+
+            self.enemy_list.update()
+
+            # Check for collision between the player and enemy
+            for enemy in self.enemy_list:
+                if arcade.check_for_collision(self.shield, enemy):
+                    enemy.remove_from_sprite_lists()
+                    self.window.total_score += 1
+
+            for enemy in self.enemy_list:
+                if arcade.check_for_collision(self.ship, enemy):
+                    enemy.remove_from_sprite_lists()
+                    # self.window.total_score -= 1
+
+            if self.window.total_score == self.window.enemy_count:
+                game_over_view = AppleMinigameOverView()
+                self.window.show_view(game_over_view)
+
+            left_collision_list = arcade.check_for_collision_with_list(self.player_sprite, self.left_sprite_list)
+            right_collision_list = arcade.check_for_collision_with_list(self.player_sprite, self.right_sprite_list)
+
+            if left_collision_list or right_collision_list:
+                self.window.tracking = True
+            else:
+                self.window.tracking = False
+
+    def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
+        if self.window.tracking:
+            self.radar.update_target_angle(x, y)
+        self.mouse_x = x
+        self.mouse_y = y
+
+    def move_pointer(self):
+        x_dist = self.mouse_x - self.pointer_x
+        y_dist = self.mouse_y - self.pointer_y
+
+        distance = (x_dist ** 2 + y_dist ** 2) ** 0.5
+
+        if distance > self.deadzone_radius:
+            self.pointer_x += x_dist * .4
+            self.pointer_y += y_dist * .4
+            self.player_sprite.center_x += x_dist * .4
+            self.player_sprite.center_y += y_dist * .4
+        return int(self.player_sprite.center_x * 0.5), int(self.player_sprite.center_y * 0.5)
+
+    def on_hide_view(self):
+        # show mouse
+        self.window.set_mouse_visible(True)
+
+    def on_key_press(self, symbol: int, modifiers: int):
+        if symbol == arcade.key.ESCAPE:
+            self.modal_section.enabled = True
+
+    def paused(self):
+        if self.modal_section.enabled:
+            return True
+
+
 class GameWindow(arcade.Window):
 
     def __init__(self):
         super().__init__(title="EyeFit",
                          resizable=False,
                          fullscreen=True)
+        self.last_view = None
         self.total_score = 0
-        self.apple_count = APPLE_COUNT
+        self.apple_count = 0
+        self.enemy_count = 0
         self.recording = []
         self.apple_timing = []
         self.time_elapsed = ""
         self.apple_slider_value = 4
+        self.shield_slider_value = 4
         self.background_type = "default"
         self.start_time = None
         self.heatmap = None
+        self.tracking = False
 
     # def on_key_press(self, symbol: int, modifiers: int):
     #   if symbol == arcade.key.ESCAPE:
