@@ -77,24 +77,29 @@ def draw_number(start_x, start_y, index, opacity):
                      16, anchor_x="center", anchor_y="center", bold=True)
 
 
-# noinspection PyUnusedLocal
-def sign_recording(list_a):
+def sign_recording(list_a, last_view):
+    for _ in list_a:
+        if _[0] == 0 and _[1] == 0:
+            list_a.pop(list_a.index(_))
+
     list_a[0] = list_a[0][0:-1] + ("start",)
     list_a[-1] = list_a[-1][0:-1] + ("point",)
     score = 0
 
+    if "Shield" in str(last_view):
+        list_a[0] = list_a[0][0:-1] + ("normal",)
     # Create a copy of the list for iteration
     list_b = list_a.copy()
-
-    for _ in list_b:
-        if _[3] == score:
-            flag = False
-        else:
-            flag = True
-        if flag:
-            index = list_a.index(_)
-            list_a[index] = _[0:-1] + ("start",)
-            score += 1
+    if "Apple" in str(last_view):
+        for _ in list_b:
+            if _[3] == score:
+                flag = False
+            else:
+                flag = True
+            if flag:
+                index = list_a.index(_)
+                list_a[index] = _[0:-1] + ("start",)
+                score += 1
 
     list_b = list_a.copy()
     score = list_a[-1][3]
@@ -219,11 +224,6 @@ class Heatmap(arcade.Section):
 
     def on_draw(self):
         """ Draw this section """
-        # arcade.start_render()
-        # if self.recording:
-        #     current_time = time.time()
-        #     if current_time - self.window.start_time > RECORDING_DURATION:
-        #         self.recording = False
         self.draw_heatmap()
 
         arcade.draw_lrtb_rectangle_filled(self.left,
@@ -445,13 +445,13 @@ class ModalSection(arcade.Section):
 
     def on_draw(self):
         # draw modal frame and buttons
-        self.manager.draw()
-
         arcade.draw_lrtb_rectangle_filled(self.left, self.right, self.top,
                                           self.bottom, arcade.color.GRAY)
         arcade.draw_lrtb_rectangle_outline(self.left, self.right, self.top,
                                            self.bottom, arcade.color.BLACK, int(self.offset * .1))
         self.manager.draw()
+        self.manager.disable()
+        self.manager.enable()
 
     def on_hide_section(self):
         self.manager.disable()
@@ -1084,7 +1084,6 @@ class AppleInstruction(arcade.View):
         self.manager.disable()
 
 
-# noinspection PyTypeChecker
 class AppleMinigame(arcade.View):
     def __init__(self):
         super().__init__()
@@ -1094,6 +1093,7 @@ class AppleMinigame(arcade.View):
         self.FONT_SIZE = int(self.OFFSET / 4)
         # constant kernel for heatmap creation
         self.kernel = self.create_circular_gaussian_kernel(KERNEL_RADIUS)
+        self.window.game_lost = False
 
         if self.window.background_type == "cam":
             self.shape_list = None
@@ -1353,6 +1353,7 @@ class AppleMinigame(arcade.View):
             self.timer_text.text = f"{minutes:02d}:{seconds:02d}:{seconds_100s:02d}"
             self.window.time_elapsed = self.timer_text.text
 
+            # noinspection PyTypeChecker
             self.window.recording.append(
                 self.move_pointer() + (self.total_time, self.window.total_score + 1, "normal"))
 
@@ -1384,7 +1385,7 @@ class AppleMinigame(arcade.View):
                         self.create_apple()
 
             if self.window.total_score == self.window.apple_count:
-                game_over_view = AppleMinigameOverView()
+                game_over_view = MinigameOverView()
                 self.window.show_view(game_over_view)
 
     def update_heatmap(self, x, y):
@@ -1436,7 +1437,7 @@ class AppleMinigame(arcade.View):
             return True
 
 
-class AppleMinigameOverView(arcade.View):
+class MinigameOverView(arcade.View):
 
     def __init__(self):
         super().__init__()
@@ -1516,12 +1517,12 @@ class AppleMinigameOverView(arcade.View):
         )
 
         # Create the buttons
-        self.back_button = UIFlatButton(text="Back",
+        self.back_button = UIFlatButton(text="Menu",
                                         width=self.BUTTON_WIDTH,
                                         height=self.BUTTON_HEIGHT,
                                         style=self.back_button_style
                                         )
-        self.play_button = UIFlatButton(text="Play",
+        self.play_button = UIFlatButton(text="Replay",
                                         width=self.BUTTON_WIDTH,
                                         height=self.BUTTON_HEIGHT,
                                         style=self.play_button_style
@@ -1584,10 +1585,8 @@ class AppleMinigameOverView(arcade.View):
     def on_show_view(self):
         # Prepare score recording
         # Sign recording
-        for _ in self.window.recording:
-            if [_][0] == 0 and [_][1] == 0:
-                self.window.recording.pop(self.window.recording.index(_))
-        self.window.recording = sign_recording(self.window.recording)
+
+        self.window.recording = sign_recording(self.window.recording, self.window.last_view)
 
         # Record point timing to a separate list
 
@@ -1607,8 +1606,11 @@ class AppleMinigameOverView(arcade.View):
         self.clear(arcade.color.PASTEL_BLUE)
 
         font_size = int(self.RECORD_OFFSET / 2)
-
-        self.draw_text("You Finished!", 0, self.HEIGHT - self.RECORD_OFFSET * 0.1, font_size, self.WIDTH)
+        if "Shield" in str(self.window.last_view) and self.window.game_lost:
+            text = "You Lost!"
+        else:
+            text = "You Finished!"
+        self.draw_text(text, 0, self.HEIGHT - self.RECORD_OFFSET * 0.1, font_size, self.WIDTH)
 
         # draw Score
         output_total = f"Total Score: {self.window.total_score}"
@@ -1839,6 +1841,8 @@ class ShieldMinigame(arcade.View):
         self.text_color = arcade.color.WHITE
         self.travel_time = 7
         self.FONT_SIZE = int(self.OFFSET / 4)
+        self.lives = 3
+        self.window.game_lost = False
 
         # Timer
         self.total_time = 0.0
@@ -1847,7 +1851,7 @@ class ShieldMinigame(arcade.View):
 
         self.radar = Radar()
         self.shield = RotatingSprite("resources/shield.png", SPRITE_SCALE)
-        self.ship = arcade.Sprite("resources/ship.png", SPRITE_SCALE)
+        self.ship = arcade.Sprite("resources/ship.png", SPRITE_SCALE * 2)
         self.left = arcade.Sprite("resources/left.png", SPRITE_SCALE)
         self.right = arcade.Sprite("resources/right.png", SPRITE_SCALE)
         self.player_sprite = arcade.SpriteCircle(50, (0, 0, 0))
@@ -1859,11 +1863,17 @@ class ShieldMinigame(arcade.View):
         self.left_sprite_list = arcade.SpriteList()
         self.right_sprite_list = arcade.SpriteList()
         self.enemy_list = arcade.SpriteList()
+        self.lives_sprite_list = arcade.SpriteList()
 
         self.ship_sprite_list.extend([self.ship])
         self.shield_sprite_list.extend([self.shield])
         self.left_sprite_list.extend([self.left])
         self.right_sprite_list.extend([self.right])
+        for number in range(3):
+            self.lives_sprite = arcade.Sprite("resources/ship.png", SPRITE_SCALE)
+            self.lives_sprite.center_x = self.WIDTH - self.OFFSET // 5 - number * 75
+            self.lives_sprite.center_y = self.HEIGHT - self.OFFSET // 5
+            self.lives_sprite_list.extend([self.lives_sprite])
 
         # Declarations of constants
         self.pointer_x = 0
@@ -1891,6 +1901,17 @@ class ShieldMinigame(arcade.View):
 
         self.section_manager.add_section(self.modal_section)
 
+        # Timer
+        self.total_time = 0.0
+        self.timer_text = arcade.Text(
+            text="00:00",
+            start_x=self.WIDTH // 2,
+            start_y=self.HEIGHT // 2 - self.OFFSET,
+            color=self.text_color,
+            font_size=self.OFFSET // 5,
+            anchor_x="center",
+        )
+
     @staticmethod
     def create_circular_gaussian_kernel(radius):
         """Creates a circular Gaussian kernel with the given radius."""
@@ -1913,6 +1934,8 @@ class ShieldMinigame(arcade.View):
         self.start_snowfall()
         # clear recording
         self.window.recording = []
+        # clear score timings
+        self.window.apple_timing = []
         # Timer
         self.total_time = 0.0
 
@@ -1996,6 +2019,9 @@ class ShieldMinigame(arcade.View):
         self.clear()
         arcade.start_render()
 
+        # Timer
+        self.timer_text.draw()
+
         # Draw Default background
         if self.window.background_type == "default":
             for snowflake in self.snowflake_list:
@@ -2014,13 +2040,15 @@ class ShieldMinigame(arcade.View):
         self.right_sprite_list.draw()
         # Draw enemy sprites
         self.enemy_list.draw()
+        # Draw player lives
+        self.lives_sprite_list.draw()
 
         arcade.draw_circle_outline(self.pointer_x, self.pointer_y, self.pointer_radius, arcade.color.PASTEL_VIOLET,
                                    border_width=3, num_segments=40)
 
         output = f"Score: {self.window.total_score}"
-        arcade.draw_text(text=output, start_x=self.WIDTH / 2, start_y=self.HEIGHT / 2 - self.OFFSET,
-                         color=self.text_color, font_size=25,
+        arcade.draw_text(text=output, start_x=self.WIDTH / 2, start_y=self.HEIGHT / 2 - self.OFFSET * 1.1,
+                         color=self.text_color, font_size=self.OFFSET // 5,
                          anchor_x="center", anchor_y="top")
 
     def on_update(self, delta_time):
@@ -2031,11 +2059,9 @@ class ShieldMinigame(arcade.View):
             if self.snowfall_active:
                 if self.snowfall_speed_multiplier < 1.0:
                     self.snowfall_speed_multiplier += .01
-                    print(self.snowfall_speed_multiplier)
             else:
                 if self.snowfall_speed_multiplier > 0.0:
                     self.snowfall_speed_multiplier -= .01
-                    print(self.snowfall_speed_multiplier)
 
             # Animate all the snowflakes falling
             for snowflake in self.snowflake_list:
@@ -2050,6 +2076,19 @@ class ShieldMinigame(arcade.View):
 
             # Timer
             self.total_time += delta_time
+
+            # Calculate minutes
+            minutes = int(self.total_time) // 60
+
+            # Calculate seconds by using a modulus
+            seconds = int(self.total_time) % 60
+
+            # Calculate 100s of a second
+            seconds_100s = int((self.total_time - seconds) * 100)
+
+            # Use string formatting to create a new text string for our timer
+            self.timer_text.text = f"{minutes:02d}:{seconds:02d}:{seconds_100s:02d}"
+            self.window.time_elapsed = self.timer_text.text
 
             # noinspection PyTypeChecker
             self.window.recording.append(
@@ -2094,10 +2133,16 @@ class ShieldMinigame(arcade.View):
             for enemy in self.enemy_list:
                 if arcade.check_for_collision(self.ship, enemy):
                     enemy.remove_from_sprite_lists()
-                    # self.window.total_score -= 1
+                    self.lives_sprite_list.pop()
+                    self.lives -= 1
 
             if self.window.total_score == self.window.enemy_count:
-                game_over_view = AppleMinigameOverView()
+                game_over_view = MinigameOverView()
+                self.window.show_view(game_over_view)
+
+            if self.lives == 0:
+                self.window.game_lost = True
+                game_over_view = MinigameOverView()
                 self.window.show_view(game_over_view)
 
             left_collision_list = arcade.check_for_collision_with_list(self.player_sprite, self.left_sprite_list)
@@ -2159,6 +2204,7 @@ class GameWindow(arcade.Window):
         self.start_time = None
         self.heatmap = None
         self.tracking = False
+        self.game_lost = False
 
     # def on_key_press(self, symbol: int, modifiers: int):
     #   if symbol == arcade.key.ESCAPE:
