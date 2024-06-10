@@ -10,7 +10,6 @@ from arcade.gui import UIManager, UILabel, UISpace, UIBoxLayout, UIFlatButton, U
     UIAnchorWidget, UITextArea, UITexturePane
 from arcade.gui.events import UIOnChangeEvent, UIOnClickEvent
 
-SCREEN_TITLE = "Apple Collecting Game"
 SPRITE_SCALING_APPLE = 0.1
 SPRITE_SCALING_BASKET = 0.2
 APPLE_COUNT = 1
@@ -24,11 +23,8 @@ HEATMAP_RESOLUTION_Y = 9 * 8
 # Radius of the effect around the mouse position in bins
 KERNEL_RADIUS = 4
 SPRITE_SCALE = .5
-RADIANS_PER_FRAME = 0.04
-SCREEN_WIDTH = 1920
-SCREEN_HEIGHT = 1080
-CENTER_X = SCREEN_WIDTH // 2
-CENTER_Y = SCREEN_HEIGHT // 2
+# acceleration of shield when following the mouse
+RADIANS_PER_FRAME = 0.08
 
 
 def draw_line(start_x, start_y, end_x, end_y, opacity):
@@ -116,6 +112,35 @@ def sign_recording(list_a, last_view):
     return list_a
 
 
+class DustAnim(arcade.Sprite):
+    def __init__(self, x, y, scale):
+        super().__init__()
+        self.cur_texture = 1
+        self.dust_anim = []
+        self.timer = 10
+        self.center_x = x
+        self.center_y = y
+        self.scale = scale
+
+        # --- Load Textures ---
+        main_path = "resources/dust_anim/dust_"
+
+        for i in range(1, 9):
+            texture = arcade.load_texture(f"{main_path}{i}.png")
+            self.dust_anim.append(texture)
+
+    def update_animation(self, delta_time: float = 1 / 60):
+        if self.timer == 10:
+            if self.cur_texture == 8:
+                self.remove_from_sprite_lists()
+            else:
+                self.texture = self.dust_anim[self.cur_texture]
+                self.alpha -= 20
+                self.cur_texture += 1
+                self.timer = 0
+        self.timer += 1
+
+
 class RotatingSprite(arcade.Sprite):
     def __init__(self, texture: str, scale):
         super().__init__()
@@ -142,6 +167,31 @@ class Snowflake:
         self.x = random.randrange(self.WIDTH)
 
 
+class ShakeSprite(arcade.Sprite):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.original_x = self.center_x
+        self.shaking = False
+        self.shake_start_time = 0
+        self.last_shake_time = 0
+
+    def shake(self):
+        self.shaking = True
+        self.shake_start_time = time.time()
+        self.last_shake_time = self.shake_start_time
+
+    def update(self):
+        if self.shaking:
+            current_time = time.time()
+            if current_time - self.shake_start_time < .5:
+                if current_time - self.last_shake_time >= .05:
+                    self.center_x = self.original_x + random.randint(-10, 10)
+                    self.last_shake_time = current_time
+            else:
+                self.shaking = False
+                self.center_x = self.original_x
+
+
 class Radar:
     def __init__(self):
         self.WIDTH = int(arcade.get_viewport()[1])
@@ -149,6 +199,8 @@ class Radar:
         self.OFFSET = int(self.WIDTH * 0.08) * 2
         self.angle = 0
         self.target_angle = 0
+        self.CENTER_X = self.WIDTH // 2
+        self.CENTER_Y = self.HEIGHT // 2
 
     def update(self):
         # Move the angle of the sweep towards the target angle.
@@ -168,20 +220,20 @@ class Radar:
     def get_coordinates(self, element: str):
         """available elements are: "shield", "left", "right" """
         if element == "shield":
-            x = self.OFFSET * math.sin(self.angle) + CENTER_X
-            y = self.OFFSET * math.cos(self.angle) + CENTER_Y
+            x = self.OFFSET * math.sin(self.angle) + self.CENTER_X
+            y = self.OFFSET * math.cos(self.angle) + self.CENTER_Y
             return x, y
         if element == "left":
-            x = self.OFFSET * math.sin(self.angle - SPRITE_SCALE) + CENTER_X
-            y = self.OFFSET * math.cos(self.angle - SPRITE_SCALE) + CENTER_Y
+            x = self.OFFSET * math.sin(self.angle - SPRITE_SCALE) + self.CENTER_X
+            y = self.OFFSET * math.cos(self.angle - SPRITE_SCALE) + self.CENTER_Y
             return x, y
         if element == "right":
-            x = self.OFFSET * math.sin(self.angle + SPRITE_SCALE) + CENTER_X
-            y = self.OFFSET * math.cos(self.angle + SPRITE_SCALE) + CENTER_Y
+            x = self.OFFSET * math.sin(self.angle + SPRITE_SCALE) + self.CENTER_X
+            y = self.OFFSET * math.cos(self.angle + SPRITE_SCALE) + self.CENTER_Y
             return x, y
 
     def update_target_angle(self, mouse_x, mouse_y):
-        self.target_angle = -math.atan2(mouse_y - CENTER_Y, mouse_x - CENTER_X) + math.pi / 2
+        self.target_angle = -math.atan2(mouse_y - self.CENTER_Y, mouse_x - self.CENTER_X) + math.pi / 2
 
 
 class Heatmap(arcade.Section):
@@ -516,7 +568,7 @@ class Basket(arcade.Sprite):
         self.center_x += change_x
         self.center_y += change_y
 
-        # How far are we?
+        # Distance to target location
         distance = math.sqrt((self.center_x - dest_x) ** 2 + (self.center_y - dest_y) ** 2)
 
         # If we are there, head to the next point.
@@ -541,6 +593,7 @@ class MenuView(arcade.View):
         self.BUTTON_WIDTH = self.WIDTH / 6
         self.BUTTON_HEIGHT = self.HEIGHT / 6
         self.FONT_SIZE = int(self.OFFSET / 4)
+        print("offset is ", self.OFFSET)
 
         # --- Required for all code that uses UI element,
         # a UIManager to handle the UI.
@@ -694,20 +747,22 @@ class Settings(arcade.View):
         # Create mode label, tooltip, space and textured button
         self.mode_label = UILabel(text="Webcam mode", font_size=self.FONT_SIZE)
         self.mode_space = UISpace()
-        self.mode_checkbox = UITextureButton(texture=arcade.load_texture("resources/unchecked.png"))
-
+        if self.window.webcam_mode:
+            self.mode_checkbox = UITextureButton(texture=arcade.load_texture("resources/checked.png"))
+        if not self.window.webcam_mode:
+            self.mode_checkbox = UITextureButton(texture=arcade.load_texture("resources/unchecked.png"))
         # Track the state of the mode_checkbox
-        self.mode_enabled = True
+        self.mode_enabled = self.window.webcam_mode
 
         @self.mode_checkbox.event()
         def on_click(event: UIOnClickEvent):
-            print("mode_checkbox: ", event)
-            if self.mode_enabled:
+            print("mode_checkbox: ", event, self.mode_enabled)
+            if not self.mode_enabled:
                 self.mode_checkbox.texture = arcade.load_texture("resources/checked.png")
-                self.mode_enabled = not self.mode_enabled
+                self.mode_enabled = True
             else:
                 self.mode_checkbox.texture = arcade.load_texture("resources/unchecked.png")
-                self.mode_enabled = not self.mode_enabled
+                self.mode_enabled = False
 
         self.h_mode_box.add(self.mode_label)
         self.h_mode_box.add(self.mode_space)
@@ -750,7 +805,10 @@ class Settings(arcade.View):
         @self.apply_button.event()
         def on_click(event: UIOnClickEvent):
             print("Apply:", event)
-            print("do apply stuff")
+            if self.mode_enabled:
+                self.window.webcam_mode = True
+            if not self.mode_enabled:
+                self.window.webcam_mode = False
             view = MenuView()
             self.window.show_view(view)
 
@@ -893,7 +951,6 @@ class AppleInstruction(arcade.View):
         self.WIDTH = arcade.get_viewport()[1]
         self.HEIGHT = arcade.get_viewport()[3]
         self.OFFSET = int(self.WIDTH * OFFSET_MULTIPLIER)
-        print("offset is ", self.OFFSET)
         self.BUTTON_WIDTH = self.WIDTH / 6
         self.BUTTON_HEIGHT = self.HEIGHT / 6
         self.FONT_SIZE = int(self.OFFSET / 4)
@@ -1087,13 +1144,24 @@ class AppleInstruction(arcade.View):
 class AppleMinigame(arcade.View):
     def __init__(self):
         super().__init__()
-        self.WIDTH = arcade.get_viewport()[1]
-        self.HEIGHT = arcade.get_viewport()[3]
+        self.WIDTH = int(arcade.get_viewport()[1])
+        self.HEIGHT = int(arcade.get_viewport()[3])
         self.OFFSET = int(self.WIDTH * OFFSET_MULTIPLIER)
         self.FONT_SIZE = int(self.OFFSET / 4)
         # constant kernel for heatmap creation
         self.kernel = self.create_circular_gaussian_kernel(KERNEL_RADIUS)
         self.window.game_lost = False
+        self.section_list = []
+        self.section_list_index = random.randint(1, 4)
+
+        for sec_x in range(1, self.window.apple_sections[0] + 1):
+            for sec_y in range(1, self.window.apple_sections[1] + 1):
+                print(sec_x, sec_y)
+                sec_width = (self.WIDTH // self.window.apple_sections[0]) * sec_x
+                sec_height = (self.HEIGHT // self.window.apple_sections[1]) * sec_y
+                print(sec_width, sec_height)
+                self.section_list.append((sec_width, sec_height))
+        print(self.section_list)
 
         if self.window.background_type == "cam":
             self.shape_list = None
@@ -1144,7 +1212,10 @@ class AppleMinigame(arcade.View):
         self.mouse_x = 0
         self.mouse_y = 0
 
-        self.deadzone_radius = 50
+        if self.window.webcam_mode:
+            self.deadzone_radius = 50
+        else:
+            self.deadzone_radius = 0
         self.pointer_radius = 50
 
         self.section_manager.add_section(self.modal_section)
@@ -1278,17 +1349,40 @@ class AppleMinigame(arcade.View):
         for _ in range(self.initial_apple_count):
             self.create_apple()
 
-    def create_apple(self):
+    def create_apple(self, ):
         """Create a single apple and add it to the apple list."""
-        width, height = int(arcade.get_viewport()[1]), int(arcade.get_viewport()[3])
         max_attempts = 50
         for _ in range(max_attempts):
             if self.window.background_type == "cam":
                 apple = arcade.Sprite("resources/cam_apple.png", SPRITE_SCALING_APPLE)
             else:
                 apple = arcade.Sprite("resources/apple.png", SPRITE_SCALING_APPLE)
-            apple.center_x = random.randrange(self.OFFSET, width - self.OFFSET)
-            apple.center_y = random.randrange(self.OFFSET, height - self.OFFSET)
+            # apple.center_x = random.randrange(+ self.OFFSET // 2, coord[0] - self.OFFSET // 2)
+            # apple.center_y = random.randrange(self.OFFSET // 2, coord[1] - self.OFFSET // 2)
+            if self.section_list_index == 1:
+                apple.center_x = random.randrange(0 + self.OFFSET // 2, self.section_list[0][0] - self.OFFSET // 2)
+                apple.center_y = random.randrange(0 + self.OFFSET // 2, self.section_list[0][1] - self.OFFSET // 2)
+                print("Apple spawned in sec1")
+            if self.section_list_index == 2:
+                apple.center_x = random.randrange(0 + self.OFFSET // 2, self.section_list[0][0])
+                apple.center_y = random.randrange(self.section_list[0][1] + self.OFFSET // 2,
+                                                  self.section_list[1][1] - self.OFFSET // 2)
+                print("Apple spawned in sec2")
+            if self.section_list_index == 3:
+                apple.center_x = random.randrange(self.section_list[0][0] + self.OFFSET // 2,
+                                                  self.section_list[2][0] - self.OFFSET // 2)
+                apple.center_y = random.randrange(0 + self.OFFSET // 2, self.section_list[0][1])
+                print("Apple spawned in sec3")
+            if self.section_list_index == 4:
+                apple.center_x = random.randrange(self.section_list[0][0] + self.OFFSET // 2,
+                                                  self.section_list[2][0] - self.OFFSET // 2)
+                apple.center_y = random.randrange(self.section_list[0][1] + self.OFFSET // 2,
+                                                  self.section_list[1][1] - self.OFFSET // 2)
+                print("Apple spawned in sec4")
+
+            self.section_list_index += 1
+            if self.section_list_index == self.window.apple_sections[0] * self.window.apple_sections[1] + 1:
+                self.section_list_index = 1
 
             if not arcade.check_for_collision_with_list(apple, self.apple_list):
                 self.apple_list.append(apple)
@@ -1426,7 +1520,7 @@ class AppleMinigame(arcade.View):
 
     def on_show_view(self):
         # hide mouse
-        self.window.set_mouse_visible(False)
+        self.window.set_mouse_visible(True)
 
     def on_hide_view(self):
         # show mouse
@@ -1838,6 +1932,8 @@ class ShieldMinigame(arcade.View):
         self.WIDTH = int(arcade.get_viewport()[1])
         self.HEIGHT = int(arcade.get_viewport()[3])
         self.OFFSET = int(self.WIDTH * 0.08)
+        self.CENTER_X = self.WIDTH // 2
+        self.CENTER_Y = self.HEIGHT // 2
         self.text_color = arcade.color.WHITE
         self.travel_time = 7
         self.FONT_SIZE = int(self.OFFSET / 4)
@@ -1851,7 +1947,9 @@ class ShieldMinigame(arcade.View):
 
         self.radar = Radar()
         self.shield = RotatingSprite("resources/shield.png", SPRITE_SCALE)
-        self.ship = arcade.Sprite("resources/ship.png", SPRITE_SCALE * 2)
+        self.ship = ShakeSprite("resources/ship.png",
+                                center_x=self.CENTER_X,
+                                center_y=self.CENTER_Y)
         self.left = arcade.Sprite("resources/left.png", SPRITE_SCALE)
         self.right = arcade.Sprite("resources/right.png", SPRITE_SCALE)
         self.player_sprite = arcade.SpriteCircle(50, (0, 0, 0))
@@ -1864,6 +1962,7 @@ class ShieldMinigame(arcade.View):
         self.right_sprite_list = arcade.SpriteList()
         self.enemy_list = arcade.SpriteList()
         self.lives_sprite_list = arcade.SpriteList()
+        self.dust_list = arcade.SpriteList()
 
         self.ship_sprite_list.extend([self.ship])
         self.shield_sprite_list.extend([self.shield])
@@ -1896,8 +1995,19 @@ class ShieldMinigame(arcade.View):
                                           int(self.WIDTH / 4) + self.OFFSET,
                                           int(self.HEIGHT / 3) + self.OFFSET, self.OFFSET, self.FONT_SIZE)
 
-        # Set background color
-        arcade.set_background_color(arcade.color.DARK_MIDNIGHT_BLUE)
+        if self.window.background_type == "cam":
+            self.shape_list = None
+
+            # Calculate the diagonal of the screen
+            self.DIAGONAL = int((self.WIDTH ** 2 + self.HEIGHT ** 2) ** 0.5)
+
+            # Set shape size to be larger than the screen diagonal
+            self.SHAPE_SIZE = self.DIAGONAL + 100
+            self.text_color = arcade.color.RED
+
+        elif self.window.background_type == "default":
+            arcade.set_background_color(arcade.color.DARK_MIDNIGHT_BLUE)
+            self.text_color = arcade.color.WHITE
 
         self.section_manager.add_section(self.modal_section)
 
@@ -1941,6 +2051,49 @@ class ShieldMinigame(arcade.View):
 
         self.window.heatmap = np.zeros((HEATMAP_RESOLUTION_X, HEATMAP_RESOLUTION_Y))
 
+        # background selection
+        if self.window.background_type == "cam":
+            self.shape_list = arcade.ShapeElementList()
+
+            # --- Create all the rectangles
+
+            # We need a list of all the points and colors
+            point_list = []
+            color_list = []
+
+            # Calculate the center offset
+            x_offset = y_offset = self.SHAPE_SIZE // 2
+
+            # Now calculate all the points
+            for x in range(0, self.SHAPE_SIZE, self.OFFSET):
+                for y in range(0, self.SHAPE_SIZE, self.OFFSET):
+                    # Calculate where the four points of the rectangle will be if
+                    # x and y are the center
+                    top_left = (x - self.OFFSET - x_offset, y + self.OFFSET - y_offset)
+                    top_right = (x + self.OFFSET - x_offset, y + self.OFFSET - y_offset)
+                    bottom_right = (x + self.OFFSET - x_offset, y - self.OFFSET - y_offset)
+                    bottom_left = (x - self.OFFSET - x_offset, y - self.OFFSET - y_offset)
+
+                    # Add the points to the points list.
+                    # ORDER MATTERS!
+                    # Rotate around the rectangle, don't append points caty-corner
+                    point_list.append(top_left)
+                    point_list.append(top_right)
+                    point_list.append(bottom_right)
+                    point_list.append(bottom_left)
+
+                    # Add a color for each point alternating between two colors
+                    if (x // self.OFFSET + y // self.OFFSET) % 2 == 0:
+                        color_list.extend([arcade.color.WHITE] * 4)
+                    else:
+                        color_list.extend([arcade.color.BLACK] * 4)
+
+            shape = arcade.create_rectangles_filled_with_colors(point_list, color_list)
+            self.shape_list.append(shape)
+
+            self.shape_list._center_y = self.HEIGHT // 2
+            self.shape_list._center_x = self.WIDTH // 2
+
     def update_heatmap(self, x, y):
         """Updates the heatmap with a Gaussian kernel centered at (x, y).
         Recording process"""
@@ -1978,7 +2131,7 @@ class ShieldMinigame(arcade.View):
 
     def add_enemy(self):
         """ Add a new enemy sprite that starts just outside the screen and heads to the center. """
-        enemy_sprite = arcade.Sprite(":resources:images/space_shooter/meteorGrey_med1.png", SPRITE_SCALE * 4)
+        enemy_sprite = arcade.Sprite("resources/meteor.png", SPRITE_SCALE * 4)
         if len(self.side_list) == 0:
             self.side_list = {"left", "right", "top", "bottom"}
         side = random.choice(list(self.side_list))
@@ -1986,20 +2139,20 @@ class ShieldMinigame(arcade.View):
 
         if side == "left":
             enemy_sprite.center_x = -enemy_sprite.width // 2
-            enemy_sprite.center_y = random.randint(0, SCREEN_HEIGHT)
+            enemy_sprite.center_y = random.randint(0, self.HEIGHT)
         elif side == "right":
-            enemy_sprite.center_x = SCREEN_WIDTH + enemy_sprite.width // 2
-            enemy_sprite.center_y = random.randint(0, SCREEN_HEIGHT)
+            enemy_sprite.center_x = self.WIDTH + enemy_sprite.width // 2
+            enemy_sprite.center_y = random.randint(0, self.HEIGHT)
         elif side == "top":
-            enemy_sprite.center_x = random.randint(0, SCREEN_WIDTH)
-            enemy_sprite.center_y = SCREEN_HEIGHT + enemy_sprite.height // 2
+            enemy_sprite.center_x = random.randint(0, self.WIDTH)
+            enemy_sprite.center_y = self.HEIGHT + enemy_sprite.height // 2
         else:  # "bottom"
-            enemy_sprite.center_x = random.randint(0, SCREEN_WIDTH)
+            enemy_sprite.center_x = random.randint(0, self.WIDTH)
             enemy_sprite.center_y = -enemy_sprite.height // 2
 
         # Calculate the angle to the center
-        dest_x = SCREEN_WIDTH // 2
-        dest_y = SCREEN_HEIGHT // 2
+        dest_x = self.CENTER_X
+        dest_y = self.CENTER_Y
         x_diff = dest_x - enemy_sprite.center_x
         y_diff = dest_y - enemy_sprite.center_y
         angle = math.atan2(y_diff, x_diff)
@@ -2018,6 +2171,12 @@ class ShieldMinigame(arcade.View):
         # Clear screen
         self.clear()
         arcade.start_render()
+
+        if self.window.background_type == "cam":
+            # --- Draw all the rectangles
+            self.shape_list.draw()
+            for snowflake in self.snowflake_list:
+                arcade.draw_circle_filled(snowflake.x, snowflake.y, snowflake.size, arcade.color.BLUE)
 
         # Timer
         self.timer_text.draw()
@@ -2042,6 +2201,8 @@ class ShieldMinigame(arcade.View):
         self.enemy_list.draw()
         # Draw player lives
         self.lives_sprite_list.draw()
+        # Draw dust animation
+        self.dust_list.draw()
 
         arcade.draw_circle_outline(self.pointer_x, self.pointer_y, self.pointer_radius, arcade.color.PASTEL_VIOLET,
                                    border_width=3, num_segments=40)
@@ -2055,6 +2216,9 @@ class ShieldMinigame(arcade.View):
         if self.paused():
             pass
         else:
+            # Background Rotation
+            if self.window.background_type == "cam":
+                self.shape_list.angle += .1
             # Gradually adjust the snowfall speed
             if self.snowfall_active:
                 if self.snowfall_speed_multiplier < 1.0:
@@ -2073,6 +2237,9 @@ class ShieldMinigame(arcade.View):
 
             # Update the radar
             self.radar.update()
+
+            # ship update
+            self.ship_sprite_list.update()
 
             # Timer
             self.total_time += delta_time
@@ -2114,9 +2281,6 @@ class ShieldMinigame(arcade.View):
             self.right.center_y = right_y
             self.right.angle = -math.degrees(self.radar.angle)
 
-            self.ship.center_x = CENTER_X
-            self.ship.center_y = CENTER_Y
-
             self.move_pointer()
 
             if not self.enemy_list:
@@ -2124,15 +2288,21 @@ class ShieldMinigame(arcade.View):
 
             self.enemy_list.update()
 
+            if self.dust_list:
+                self.dust_list[0].update_animation()
+
             # Check for collision between the player and enemy
             for enemy in self.enemy_list:
                 if arcade.check_for_collision(self.shield, enemy):
+                    self.dust_list.append(DustAnim(enemy.center_x, enemy.center_y, 2))
                     enemy.remove_from_sprite_lists()
                     self.window.total_score += 1
 
             for enemy in self.enemy_list:
                 if arcade.check_for_collision(self.ship, enemy):
+                    self.dust_list.append(DustAnim(enemy.center_x, enemy.center_y, 2))
                     enemy.remove_from_sprite_lists()
+                    self.ship.shake()
                     self.lives_sprite_list.pop()
                     self.lives -= 1
 
@@ -2205,6 +2375,9 @@ class GameWindow(arcade.Window):
         self.heatmap = None
         self.tracking = False
         self.game_lost = False
+        # apple spawn sections parameter tuple(horizontal sections, vertical sections)
+        self.apple_sections = (2, 2)
+        self.webcam_mode = True
 
     # def on_key_press(self, symbol: int, modifiers: int):
     #   if symbol == arcade.key.ESCAPE:
