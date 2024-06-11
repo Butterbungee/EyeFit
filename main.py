@@ -539,22 +539,22 @@ class Basket(arcade.Sprite):
 
         # Where are we going
         if not Basket.backwards:
-            dest_x = self.position_list[self.cur_position][0]
-            dest_y = self.position_list[self.cur_position][1]
+            destination_x = self.position_list[self.cur_position][0]
+            destination_y = self.position_list[self.cur_position][1]
         # Change destination
         else:
-            dest_x = self.position_list[self.cur_position][0]
-            dest_y = self.position_list[self.cur_position][1]
+            destination_x = self.position_list[self.cur_position][0]
+            destination_y = self.position_list[self.cur_position][1]
 
         # X and Y diff between the two
-        x_diff = dest_x - start_x
-        y_diff = dest_y - start_y
+        x_diff = destination_x - start_x
+        y_diff = destination_y - start_y
 
         # Calculate angle to get there
         angle = math.atan2(y_diff, x_diff)
 
         # How far are we?
-        distance = math.sqrt((self.center_x - dest_x) ** 2 + (self.center_y - dest_y) ** 2)
+        distance = math.sqrt((self.center_x - destination_x) ** 2 + (self.center_y - destination_y) ** 2)
 
         # How fast should we go? If we are close to our destination,
         # lower our speed, so we don't overshoot.
@@ -569,7 +569,7 @@ class Basket(arcade.Sprite):
         self.center_y += change_y
 
         # Distance to target location
-        distance = math.sqrt((self.center_x - dest_x) ** 2 + (self.center_y - dest_y) ** 2)
+        distance = math.sqrt((self.center_x - destination_x) ** 2 + (self.center_y - destination_y) ** 2)
 
         # If we are there, head to the next point.
         if distance <= Basket.speed:
@@ -2151,10 +2151,10 @@ class ShieldMinigame(arcade.View):
             enemy_sprite.center_y = -enemy_sprite.height // 2
 
         # Calculate the angle to the center
-        dest_x = self.CENTER_X
-        dest_y = self.CENTER_Y
-        x_diff = dest_x - enemy_sprite.center_x
-        y_diff = dest_y - enemy_sprite.center_y
+        destination_x = self.CENTER_X
+        destination_y = self.CENTER_Y
+        x_diff = destination_x - enemy_sprite.center_x
+        y_diff = destination_y - enemy_sprite.center_y
         angle = math.atan2(y_diff, x_diff)
 
         # Calculate distance to the center
