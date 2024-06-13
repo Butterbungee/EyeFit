@@ -2,3 +2,7 @@
 /shelf/
 /workspace.xml
 /.idea/
+/.build/
+/.venv/
+/dist/
+/.spec
