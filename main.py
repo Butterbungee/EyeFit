@@ -1,6 +1,9 @@
 import math
 import random
 import time
+import sys
+import os
+from pathlib import Path
 
 import arcade
 import arcade.gui
@@ -10,12 +13,18 @@ from arcade.gui import UIManager, UILabel, UISpace, UIBoxLayout, UIFlatButton, U
     UIAnchorWidget, UITextArea, UITexturePane
 from arcade.gui.events import UIOnChangeEvent, UIOnClickEvent
 
+asset_dir = os.path.join(Path(__file__).parent.resolve(), "assets")
+arcade.resources.add_resource_handle("assets", asset_dir)
+
+print("__file__:", __file__, Path(__file__).resolve())
+print("sys.argv[0]:", sys.argv[0], Path(sys.argv[0]).resolve())
+
 SPRITE_SCALING_APPLE = 0.1
 SPRITE_SCALING_BASKET = 0.2
 APPLE_COUNT = 1
 BASKET_SPEED = 5
 SPEED_INCREMENT = 1
-MAX_SPEED = 10
+MAX_SPEED = 8
 OFFSET_MULTIPLIER = 0.08
 # Number of bins in each dimension
 HEATMAP_RESOLUTION_X = 16 * 8
@@ -123,7 +132,7 @@ class DustAnim(arcade.Sprite):
         self.scale = scale
 
         # --- Load Textures ---
-        main_path = "resources/dust_anim/dust_"
+        main_path = ":assets:/dust_anim/dust_"
 
         for i in range(1, 9):
             texture = arcade.load_texture(f"{main_path}{i}.png")
@@ -529,6 +538,9 @@ class Basket(arcade.Sprite):
         self.position_list = position_list
         self.cur_position = 0
         Basket.speed = BASKET_SPEED
+        self.available = True
+        self.runaway_speed = 20
+        self.old_speed = 5
 
     def update(self):
         """ Have a sprite follow a path """
@@ -541,10 +553,18 @@ class Basket(arcade.Sprite):
         if not Basket.backwards:
             destination_x = self.position_list[self.cur_position][0]
             destination_y = self.position_list[self.cur_position][1]
+            if self.available:
+                self.alpha = 255
+            if not self.available:
+                self.alpha = 126
         # Change destination
         else:
-            destination_x = self.position_list[self.cur_position][0]
-            destination_y = self.position_list[self.cur_position][1]
+            destination_x = self.position_list[self.cur_position - 1][0]
+            destination_y = self.position_list[self.cur_position - 1][1]
+            if self.available:
+                self.alpha = 255
+            if not self.available:
+                self.alpha = 126
 
         # X and Y diff between the two
         x_diff = destination_x - start_x
@@ -577,10 +597,14 @@ class Basket(arcade.Sprite):
                 self.cur_position += 1
                 if self.cur_position >= len(self.position_list):
                     self.cur_position = 0
+                self.available = True
+                Basket.speed = self.old_speed
             else:
                 self.cur_position -= 1
                 if self.cur_position < 0:
                     self.cur_position = len(self.position_list) - 1
+                self.available = True
+                Basket.speed = self.old_speed
 
 
 class MenuView(arcade.View):
@@ -748,9 +772,9 @@ class Settings(arcade.View):
         self.mode_label = UILabel(text="Webcam mode", font_size=self.FONT_SIZE)
         self.mode_space = UISpace()
         if self.window.webcam_mode:
-            self.mode_checkbox = UITextureButton(texture=arcade.load_texture("resources/checked.png"))
+            self.mode_checkbox = UITextureButton(texture=arcade.load_texture(":assets:/checked.png"))
         if not self.window.webcam_mode:
-            self.mode_checkbox = UITextureButton(texture=arcade.load_texture("resources/unchecked.png"))
+            self.mode_checkbox = UITextureButton(texture=arcade.load_texture(":assets:/unchecked.png"))
         # Track the state of the mode_checkbox
         self.mode_enabled = self.window.webcam_mode
 
@@ -758,10 +782,10 @@ class Settings(arcade.View):
         def on_click(event: UIOnClickEvent):
             print("mode_checkbox: ", event, self.mode_enabled)
             if not self.mode_enabled:
-                self.mode_checkbox.texture = arcade.load_texture("resources/checked.png")
+                self.mode_checkbox.texture = arcade.load_texture(":assets:/checked.png")
                 self.mode_enabled = True
             else:
-                self.mode_checkbox.texture = arcade.load_texture("resources/unchecked.png")
+                self.mode_checkbox.texture = arcade.load_texture(":assets:/unchecked.png")
                 self.mode_enabled = False
 
         self.h_mode_box.add(self.mode_label)
@@ -883,12 +907,12 @@ class MinigameSelect(arcade.View):
                                         height=self.BUTTON_HEIGHT,
                                         style=self.back_button_style
                                         )
-        self.apples_button = self.minigame_button("resources/minigame_apples.png",
-                                                  "resources/minigame_apples_hover.png",
-                                                  "resources/minigame_apples_click.png")
-        self.shield_button = self.minigame_button("resources/minigame_shield.png",
-                                                  "resources/minigame_shield_hover.png",
-                                                  "resources/minigame_shield_click.png")
+        self.apples_button = self.minigame_button(":assets:/minigame_apples.png",
+                                                  ":assets:/minigame_apples_hover.png",
+                                                  ":assets:/minigame_apples_click.png")
+        self.shield_button = self.minigame_button(":assets:/minigame_shield.png",
+                                                  ":assets:/minigame_shield_hover.png",
+                                                  ":assets:/minigame_shield_click.png")
 
         self.title_label = UILabel(text="Apple minigame settings and instructions", font_size=self.OFFSET / 3,
                                    text_color=arcade.color.BLACK, bold=True)
@@ -1027,25 +1051,25 @@ class AppleInstruction(arcade.View):
                                     )
         if self.window.background_type == "cam":
             self.cam_background = UITextureButton(
-                texture=arcade.load_texture("resources/bg_cam_selected.png"),
-                texture_hovered=arcade.load_texture("resources/bg_cam_selected.png"),
-                texture_pressed=arcade.load_texture("resources/bg_cam_selected.png")
+                texture=arcade.load_texture(":assets:/bg_cam_selected.png"),
+                texture_hovered=arcade.load_texture(":assets:/bg_cam_selected.png"),
+                texture_pressed=arcade.load_texture(":assets:/bg_cam_selected.png")
             )
             self.normal_background = UITextureButton(
-                texture=arcade.load_texture("resources/apple_bg_default.png"),
-                texture_hovered=arcade.load_texture("resources/apple_bg_default_hovered.png"),
-                texture_pressed=arcade.load_texture("resources/apple_bg_default_selected.png")
+                texture=arcade.load_texture(":assets:/apple_bg_default.png"),
+                texture_hovered=arcade.load_texture(":assets:/apple_bg_default_hovered.png"),
+                texture_pressed=arcade.load_texture(":assets:/apple_bg_default_selected.png")
             )
         if self.window.background_type == "default":
             self.cam_background = UITextureButton(
-                texture=arcade.load_texture("resources/bg_cam.png"),
-                texture_hovered=arcade.load_texture("resources/bg_cam_hovered.png"),
-                texture_pressed=arcade.load_texture("resources/bg_cam_selected.png")
+                texture=arcade.load_texture(":assets:/bg_cam.png"),
+                texture_hovered=arcade.load_texture(":assets:/bg_cam_hovered.png"),
+                texture_pressed=arcade.load_texture(":assets:/bg_cam_selected.png")
             )
             self.normal_background = UITextureButton(
-                texture=arcade.load_texture("resources/apple_bg_default_selected.png"),
-                texture_hovered=arcade.load_texture("resources/apple_bg_default_selected.png"),
-                texture_pressed=arcade.load_texture("resources/apple_bg_default_selected.png")
+                texture=arcade.load_texture(":assets:/apple_bg_default_selected.png"),
+                texture_hovered=arcade.load_texture(":assets:/apple_bg_default_selected.png"),
+                texture_pressed=arcade.load_texture(":assets:/apple_bg_default_selected.png")
             )
 
         self.background_label = UILabel(text="Background",
@@ -1090,24 +1114,24 @@ class AppleInstruction(arcade.View):
             print("Cam background set:", event)
             if self.window.background_type == "default":
                 self.window.background_type = "cam"
-                self.cam_background.texture = arcade.load_texture("resources/bg_cam_selected.png")
-                self.cam_background.texture_pressed = arcade.load_texture("resources/bg_cam_selected.png")
-                self.cam_background.texture_hovered = arcade.load_texture("resources/bg_cam_selected.png")
-                self.normal_background.texture = arcade.load_texture("resources/apple_bg_default.png")
-                self.normal_background.texture_pressed = arcade.load_texture("resources/apple_bg_default_selected.png")
-                self.normal_background.texture_hovered = arcade.load_texture("resources/apple_bg_default_hovered.png")
+                self.cam_background.texture = arcade.load_texture(":assets:/bg_cam_selected.png")
+                self.cam_background.texture_pressed = arcade.load_texture(":assets:/bg_cam_selected.png")
+                self.cam_background.texture_hovered = arcade.load_texture(":assets:/bg_cam_selected.png")
+                self.normal_background.texture = arcade.load_texture(":assets:/apple_bg_default.png")
+                self.normal_background.texture_pressed = arcade.load_texture(":assets:/apple_bg_default_selected.png")
+                self.normal_background.texture_hovered = arcade.load_texture(":assets:/apple_bg_default_hovered.png")
 
         @self.normal_background.event()
         def on_click(event: UIOnClickEvent):
             print("Normal background set:", event)
             if self.window.background_type == "cam":
                 self.window.background_type = "default"
-                self.normal_background.texture = arcade.load_texture("resources/apple_bg_default_selected.png")
-                self.normal_background.texture_pressed = arcade.load_texture("resources/apple_bg_default_selected.png")
-                self.normal_background.texture_hovered = arcade.load_texture("resources/apple_bg_default_selected.png")
-                self.cam_background.texture = arcade.load_texture("resources/bg_cam.png")
-                self.cam_background.texture_pressed = arcade.load_texture("resources/bg_cam_selected.png")
-                self.cam_background.texture_hovered = arcade.load_texture("resources/bg_cam_hovered.png")
+                self.normal_background.texture = arcade.load_texture(":assets:/apple_bg_default_selected.png")
+                self.normal_background.texture_pressed = arcade.load_texture(":assets:/apple_bg_default_selected.png")
+                self.normal_background.texture_hovered = arcade.load_texture(":assets:/apple_bg_default_selected.png")
+                self.cam_background.texture = arcade.load_texture(":assets:/bg_cam.png")
+                self.cam_background.texture_pressed = arcade.load_texture(":assets:/bg_cam_selected.png")
+                self.cam_background.texture_hovered = arcade.load_texture(":assets:/bg_cam_hovered.png")
 
         @self.play_button.event()
         def on_click(event: UIOnClickEvent):
@@ -1156,12 +1180,9 @@ class AppleMinigame(arcade.View):
 
         for sec_x in range(1, self.window.apple_sections[0] + 1):
             for sec_y in range(1, self.window.apple_sections[1] + 1):
-                print(sec_x, sec_y)
                 sec_width = (self.WIDTH // self.window.apple_sections[0]) * sec_x
                 sec_height = (self.HEIGHT // self.window.apple_sections[1]) * sec_y
-                print(sec_width, sec_height)
                 self.section_list.append((sec_width, sec_height))
-        print(self.section_list)
 
         if self.window.background_type == "cam":
             self.shape_list = None
@@ -1204,6 +1225,21 @@ class AppleMinigame(arcade.View):
         # Set up the player info
         self.player_sprite = None
         self.picked_up_state = False
+
+        # define screen
+        left, right, bottom, top = arcade.get_viewport()
+
+        # List of points the basket will travel too.
+
+        self.position_list = [[left + self.OFFSET, bottom + self.OFFSET],
+                              [right - self.OFFSET, bottom + self.OFFSET],
+                              [right - self.OFFSET, top - self.OFFSET],
+                              [left + self.OFFSET, top - self.OFFSET]]
+
+        # Create the basket
+        self.basket = Basket(":assets:/basket.png",
+                             SPRITE_SCALING_BASKET,
+                             self.position_list)
 
         # Declarations of constants
         self.pointer_x = 0
@@ -1249,9 +1285,6 @@ class AppleMinigame(arcade.View):
 
         self.window.start_time = time.time()
         self.window.heatmap = np.zeros((HEATMAP_RESOLUTION_X, HEATMAP_RESOLUTION_Y))
-
-        # define screen
-        left, right, bottom, top = arcade.get_viewport()
 
         # Timer
         self.total_time = 0.0
@@ -1309,12 +1342,12 @@ class AppleMinigame(arcade.View):
 
         # Set up the player
         if self.window.background_type == "cam":
-            player = self.player_sprite = arcade.Sprite("resources/cam_apple.png",
+            player = self.player_sprite = arcade.Sprite(":assets:/cam_apple.png",
                                                         SPRITE_SCALING_APPLE,
                                                         center_x=0,
                                                         center_y=0)
         else:
-            player = self.player_sprite = arcade.Sprite("resources/apple.png",
+            player = self.player_sprite = arcade.Sprite(":assets:/apple.png",
                                                         SPRITE_SCALING_APPLE,
                                                         center_x=0,
                                                         center_y=0)
@@ -1322,24 +1355,12 @@ class AppleMinigame(arcade.View):
         player.alpha = 0
         self.player_list.append(player)
 
-        # List of points the basket will travel too.
-
-        position_list = [[left + self.OFFSET, bottom + self.OFFSET],
-                         [right - self.OFFSET, bottom + self.OFFSET],
-                         [right - self.OFFSET, top - self.OFFSET],
-                         [left + self.OFFSET, top - self.OFFSET]]
-
-        # Create the basket
-        basket = Basket("resources/basket.png",
-                        SPRITE_SCALING_BASKET,
-                        position_list)
-
         # Set initial location of the basket at the first point
-        basket.center_x = position_list[0][0]
-        basket.center_y = position_list[0][1]
+        self.basket.center_x = self.position_list[0][0]
+        self.basket.center_y = self.position_list[0][1]
 
         # Add the basket to the basket list
-        self.basket_list.append(basket)
+        self.basket_list.append(self.basket)
 
         # Create the apples
         self.initial_apple_count = 1
@@ -1354,9 +1375,9 @@ class AppleMinigame(arcade.View):
         max_attempts = 50
         for _ in range(max_attempts):
             if self.window.background_type == "cam":
-                apple = arcade.Sprite("resources/cam_apple.png", SPRITE_SCALING_APPLE)
+                apple = arcade.Sprite(":assets:/cam_apple.png", SPRITE_SCALING_APPLE)
             else:
-                apple = arcade.Sprite("resources/apple.png", SPRITE_SCALING_APPLE)
+                apple = arcade.Sprite(":assets:/apple.png", SPRITE_SCALING_APPLE)
             # apple.center_x = random.randrange(+ self.OFFSET // 2, coord[0] - self.OFFSET // 2)
             # apple.center_y = random.randrange(self.OFFSET // 2, coord[1] - self.OFFSET // 2)
             if self.section_list_index == 1:
@@ -1467,16 +1488,20 @@ class AppleMinigame(arcade.View):
                     self.picked_up_state = True
                     self.player_sprite.alpha = 255
 
-            if basket_collision_list and self.picked_up_state:
-                for _ in basket_collision_list:
-                    if Basket.speed < MAX_SPEED:
-                        Basket.speed += SPEED_INCREMENT
-                    Basket.backwards = not Basket.backwards
-                    self.window.total_score += 1
-                    self.player_sprite.alpha = 0
-                    self.picked_up_state = False
-                    if self.apples_created < self.total_apples_to_create:
-                        self.create_apple()
+            if self.basket.available:
+                if basket_collision_list and self.picked_up_state:
+                    for _ in basket_collision_list:
+                        if Basket.speed < MAX_SPEED:
+                            Basket.speed += SPEED_INCREMENT
+                        self.basket.old_speed = self.basket.speed
+                        Basket.speed = self.basket.runaway_speed
+                        Basket.backwards = not Basket.backwards
+                        self.window.total_score += 1
+                        self.player_sprite.alpha = 0
+                        self.picked_up_state = False
+                        if self.apples_created < self.total_apples_to_create:
+                            self.create_apple()
+                        self.basket.available = False
 
             if self.window.total_score == self.window.apple_count:
                 game_over_view = MinigameOverView()
@@ -1600,7 +1625,7 @@ class MinigameOverView(arcade.View):
                                     text_color=(0, 0, 0, 255),
                                     font_size=self.FONT_SIZE / 2
                                     )
-        bg_tex = arcade.load_texture("resources/grey_panel.png")
+        bg_tex = arcade.load_texture(":assets:/grey_panel.png")
 
         self.manager.add(UITexturePane(
             self.text_area.with_space_around(
@@ -1811,25 +1836,25 @@ class ShieldInstruction(arcade.View):
                                     )
         if self.window.background_type == "cam":
             self.cam_background = UITextureButton(
-                texture=arcade.load_texture("resources/bg_cam_selected.png"),
-                texture_hovered=arcade.load_texture("resources/bg_cam_selected.png"),
-                texture_pressed=arcade.load_texture("resources/bg_cam_selected.png")
+                texture=arcade.load_texture(":assets:/bg_cam_selected.png"),
+                texture_hovered=arcade.load_texture(":assets:/bg_cam_selected.png"),
+                texture_pressed=arcade.load_texture(":assets:/bg_cam_selected.png")
             )
             self.normal_background = UITextureButton(
-                texture=arcade.load_texture("resources/shield_bg_default.png"),
-                texture_hovered=arcade.load_texture("resources/shield_bg_default_hovered.png"),
-                texture_pressed=arcade.load_texture("resources/shield_bg_default_selected.png")
+                texture=arcade.load_texture(":assets:/shield_bg_default.png"),
+                texture_hovered=arcade.load_texture(":assets:/shield_bg_default_hovered.png"),
+                texture_pressed=arcade.load_texture(":assets:/shield_bg_default_selected.png")
             )
         if self.window.background_type == "default":
             self.cam_background = UITextureButton(
-                texture=arcade.load_texture("resources/bg_cam.png"),
-                texture_hovered=arcade.load_texture("resources/bg_cam_hovered.png"),
-                texture_pressed=arcade.load_texture("resources/bg_cam_selected.png")
+                texture=arcade.load_texture(":assets:/bg_cam.png"),
+                texture_hovered=arcade.load_texture(":assets:/bg_cam_hovered.png"),
+                texture_pressed=arcade.load_texture(":assets:/bg_cam_selected.png")
             )
             self.normal_background = UITextureButton(
-                texture=arcade.load_texture("resources/shield_bg_default_selected.png"),
-                texture_hovered=arcade.load_texture("resources/shield_bg_default_selected.png"),
-                texture_pressed=arcade.load_texture("resources/shield_bg_default_selected.png")
+                texture=arcade.load_texture(":assets:/shield_bg_default_selected.png"),
+                texture_hovered=arcade.load_texture(":assets:/shield_bg_default_selected.png"),
+                texture_pressed=arcade.load_texture(":assets:/shield_bg_default_selected.png")
             )
 
         self.background_label = UILabel(text="Background",
@@ -1874,24 +1899,24 @@ class ShieldInstruction(arcade.View):
             print("Cam background set:", event)
             if self.window.background_type == "default":
                 self.window.background_type = "cam"
-                self.cam_background.texture = arcade.load_texture("resources/bg_cam_selected.png")
-                self.cam_background.texture_pressed = arcade.load_texture("resources/bg_cam_selected.png")
-                self.cam_background.texture_hovered = arcade.load_texture("resources/bg_cam_selected.png")
-                self.normal_background.texture = arcade.load_texture("resources/shield_bg_default.png")
-                self.normal_background.texture_pressed = arcade.load_texture("resources/shield_bg_default_selected.png")
-                self.normal_background.texture_hovered = arcade.load_texture("resources/shield_bg_default_hovered.png")
+                self.cam_background.texture = arcade.load_texture(":assets:/bg_cam_selected.png")
+                self.cam_background.texture_pressed = arcade.load_texture(":assets:/bg_cam_selected.png")
+                self.cam_background.texture_hovered = arcade.load_texture(":assets:/bg_cam_selected.png")
+                self.normal_background.texture = arcade.load_texture(":assets:/shield_bg_default.png")
+                self.normal_background.texture_pressed = arcade.load_texture(":assets:/shield_bg_default_selected.png")
+                self.normal_background.texture_hovered = arcade.load_texture(":assets:/shield_bg_default_hovered.png")
 
         @self.normal_background.event()
         def on_click(event: UIOnClickEvent):
             print("Normal background set:", event)
             if self.window.background_type == "cam":
                 self.window.background_type = "default"
-                self.normal_background.texture = arcade.load_texture("resources/shield_bg_default_selected.png")
-                self.normal_background.texture_pressed = arcade.load_texture("resources/shield_bg_default_selected.png")
-                self.normal_background.texture_hovered = arcade.load_texture("resources/shield_bg_default_selected.png")
-                self.cam_background.texture = arcade.load_texture("resources/bg_cam.png")
-                self.cam_background.texture_pressed = arcade.load_texture("resources/bg_cam_selected.png")
-                self.cam_background.texture_hovered = arcade.load_texture("resources/bg_cam_hovered.png")
+                self.normal_background.texture = arcade.load_texture(":assets:/shield_bg_default_selected.png")
+                self.normal_background.texture_pressed = arcade.load_texture(":assets:/shield_bg_default_selected.png")
+                self.normal_background.texture_hovered = arcade.load_texture(":assets:/shield_bg_default_selected.png")
+                self.cam_background.texture = arcade.load_texture(":assets:/bg_cam.png")
+                self.cam_background.texture_pressed = arcade.load_texture(":assets:/bg_cam_selected.png")
+                self.cam_background.texture_hovered = arcade.load_texture(":assets:/bg_cam_hovered.png")
 
         @self.play_button.event()
         def on_click(event: UIOnClickEvent):
@@ -1946,12 +1971,12 @@ class ShieldMinigame(arcade.View):
         self.side_list = {}
 
         self.radar = Radar()
-        self.shield = RotatingSprite("resources/shield.png", SPRITE_SCALE)
-        self.ship = ShakeSprite("resources/ship.png",
+        self.shield = RotatingSprite(":assets:/shield.png", SPRITE_SCALE)
+        self.ship = ShakeSprite(":assets:/ship.png",
                                 center_x=self.CENTER_X,
                                 center_y=self.CENTER_Y)
-        self.left = arcade.Sprite("resources/left.png", SPRITE_SCALE)
-        self.right = arcade.Sprite("resources/right.png", SPRITE_SCALE)
+        self.left = arcade.Sprite(":assets:/left.png", SPRITE_SCALE)
+        self.right = arcade.Sprite(":assets:/right.png", SPRITE_SCALE)
         self.player_sprite = arcade.SpriteCircle(50, (0, 0, 0))
 
         # Sprite lists
@@ -1969,7 +1994,7 @@ class ShieldMinigame(arcade.View):
         self.left_sprite_list.extend([self.left])
         self.right_sprite_list.extend([self.right])
         for number in range(3):
-            self.lives_sprite = arcade.Sprite("resources/ship.png", SPRITE_SCALE)
+            self.lives_sprite = arcade.Sprite(":assets:/ship.png", SPRITE_SCALE)
             self.lives_sprite.center_x = self.WIDTH - self.OFFSET // 5 - number * 75
             self.lives_sprite.center_y = self.HEIGHT - self.OFFSET // 5
             self.lives_sprite_list.extend([self.lives_sprite])
@@ -2131,7 +2156,7 @@ class ShieldMinigame(arcade.View):
 
     def add_enemy(self):
         """ Add a new enemy sprite that starts just outside the screen and heads to the center. """
-        enemy_sprite = arcade.Sprite("resources/meteor.png", SPRITE_SCALE * 4)
+        enemy_sprite = arcade.Sprite(":assets:/meteor.png", SPRITE_SCALE * 4)
         if len(self.side_list) == 0:
             self.side_list = {"left", "right", "top", "bottom"}
         side = random.choice(list(self.side_list))
