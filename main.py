@@ -10,7 +10,7 @@ import arcade.gui
 import numpy as np
 from arcade.experimental.uislider import UISlider
 from arcade.gui import UIManager, UILabel, UISpace, UIBoxLayout, UIFlatButton, UITextureButton, \
-    UIAnchorWidget, UITextArea, UITexturePane
+    UIAnchorWidget, UITextArea, UITexturePane, UISpriteWidget
 from arcade.gui.events import UIOnChangeEvent, UIOnClickEvent
 
 asset_dir = os.path.join(Path(__file__).parent.resolve(), "assets")
@@ -147,6 +147,70 @@ class DustAnim(arcade.Sprite):
                 self.alpha -= 20
                 self.cur_texture += 1
                 self.timer = 0
+        self.timer += 1
+
+
+class AppleAnim(arcade.Sprite):
+    def __init__(self, x, y, scale):
+        super().__init__()
+        self.cur_texture = 1
+        self.apple_anim = []
+        self.timer = 0
+        self.center_x = x
+        self.center_y = y
+        self.scale = scale
+        self.WIDTH = arcade.get_viewport()[1]
+        self.HEIGHT = arcade.get_viewport()[3]
+        self.width = self.WIDTH // 2
+        self.height = self.HEIGHT // 2
+
+        # --- Load Textures ---
+        main_path = ":assets:/apple_anim/"
+
+        for i in range(1, 47):
+            texture = arcade.load_texture(f"{main_path}{i}.png")
+            self.apple_anim.append(texture)
+
+    def update_animation(self, delta_time: float = 1 / 60):
+        if self.timer == 15:
+            self.texture = self.apple_anim[self.cur_texture]
+            self.cur_texture += 1
+            self.timer = 0
+            if self.cur_texture == len(self.apple_anim):
+                self.cur_texture = 0
+            self.timer = 0
+        self.timer += 1
+
+
+class ShieldAnim(arcade.Sprite):
+    def __init__(self, x, y, scale):
+        super().__init__()
+        self.cur_texture = 1
+        self.shield_anim = []
+        self.timer = 0
+        self.center_x = x
+        self.center_y = y
+        self.scale = scale
+        self.WIDTH = arcade.get_viewport()[1]
+        self.HEIGHT = arcade.get_viewport()[3]
+        self.width = self.WIDTH // 2
+        self.height = self.HEIGHT // 2
+
+        # --- Load Textures ---
+        main_path = ":assets:/shield_anim/"
+
+        for i in range(1, 42):
+            texture = arcade.load_texture(f"{main_path}{i}.png")
+            self.shield_anim.append(texture)
+
+    def update_animation(self, delta_time: float = 1 / 60):
+        if self.timer == 5:
+            self.texture = self.shield_anim[self.cur_texture]
+            self.cur_texture += 1
+            self.timer = 0
+            if self.cur_texture == len(self.shield_anim):
+                self.cur_texture = 0
+            self.timer = 0
         self.timer += 1
 
 
@@ -559,8 +623,8 @@ class Basket(arcade.Sprite):
                 self.alpha = 126
         # Change destination
         else:
-            destination_x = self.position_list[self.cur_position - 1][0]
-            destination_y = self.position_list[self.cur_position - 1][1]
+            destination_x = self.position_list[self.cur_position][0]
+            destination_y = self.position_list[self.cur_position][1]
             if self.available:
                 self.alpha = 255
             if not self.available:
@@ -846,7 +910,7 @@ class Settings(arcade.View):
         self.h_button_box.add(self.apply_button.with_space_around(right=20))
         self.h_button_box.add(self.back_button.with_space_around(left=20))
 
-        self.v_box = UIBoxLayout(vertical=True)
+        self.v_box = UIBoxLayout(vertical=True).with_background(arcade.load_texture(":assets:/apple_bg_default.png"))
         self.v_box.add(self.h_volume_box)
         self.v_box.add(self.h_mode_box)
         self.v_box.add(self.h_button_box)
@@ -946,6 +1010,7 @@ class MinigameSelect(arcade.View):
         def on_click(event: UIOnClickEvent):
             print("Apples:", event)
             view = AppleInstruction()
+            view.on_draw()
             self.window.show_view(view)
 
         @self.shield_button.event()
@@ -993,6 +1058,8 @@ class AppleInstruction(arcade.View):
         self.background_box = arcade.gui.UIBoxLayout(vertical=False)
         self.button_box = arcade.gui.UIBoxLayout(vertical=False)
 
+        self.apple_list = arcade.SpriteList()
+
         # Create the button style
         self.play_button_style = {
             "font_name": "calibri",
@@ -1030,10 +1097,9 @@ class AppleInstruction(arcade.View):
                                         height=self.BUTTON_HEIGHT,
                                         style=self.play_button_style
                                         )
-        self.gif_button = UIFlatButton(text="Gif",
-                                       width=self.WIDTH / 2,
-                                       height=self.HEIGHT / 2
-                                       )
+        self.anim_sprite = AppleAnim(0, 0, 1)
+        self.anim_button = UISpriteWidget(sprite=self.anim_sprite, width=self.WIDTH // 2, height=self.HEIGHT // 2)
+
         self.apple_slider = UISlider(value=self.window.apple_slider_value,
                                      min_value=1,
                                      max_value=99,
@@ -1083,7 +1149,7 @@ class AppleInstruction(arcade.View):
 
         self.button_box.add(self.play_button.with_space_around(right=self.BUTTON_WIDTH / 4))
         self.button_box.add(self.back_button.with_space_around(left=self.BUTTON_WIDTH / 4))
-        self.right_box.add(self.gif_button.with_space_around(bottom=self.OFFSET / 2))
+        self.right_box.add(self.anim_button.with_space_around(bottom=self.OFFSET / 2))
         self.right_box.add(self.button_box)
         self.slider_box.add(self.apple_slider)
         self.slider_box.add(self.number)
@@ -1160,6 +1226,9 @@ class AppleInstruction(arcade.View):
     def on_draw(self):
         self.clear()
         self.manager.draw()
+
+    def on_update(self, delta_time: float):
+        self.anim_sprite.update_animation()
 
     def on_hide_view(self):
         self.manager.disable()
@@ -1495,7 +1564,7 @@ class AppleMinigame(arcade.View):
                             Basket.speed += SPEED_INCREMENT
                         self.basket.old_speed = self.basket.speed
                         Basket.speed = self.basket.runaway_speed
-                        Basket.backwards = not Basket.backwards
+                        # Basket.backwards = not Basket.backwards
                         self.window.total_score += 1
                         self.player_sprite.alpha = 0
                         self.picked_up_state = False
@@ -1545,7 +1614,7 @@ class AppleMinigame(arcade.View):
 
     def on_show_view(self):
         # hide mouse
-        self.window.set_mouse_visible(True)
+        self.window.set_mouse_visible(False)
 
     def on_hide_view(self):
         # show mouse
@@ -1769,6 +1838,8 @@ class ShieldInstruction(arcade.View):
         self.manager = UIManager()
         self.manager.enable()
 
+        self.apple_list = arcade.SpriteList()
+
         # Create a vertical BoxGroups to align buttons
         self.vertical_box = arcade.gui.UIBoxLayout(vertical=True)
         self.horizontal_box = arcade.gui.UIBoxLayout(vertical=False)
@@ -1815,10 +1886,10 @@ class ShieldInstruction(arcade.View):
                                         height=self.BUTTON_HEIGHT,
                                         style=self.play_button_style
                                         )
-        self.gif_button = UIFlatButton(text="Gif",
-                                       width=self.WIDTH / 2,
-                                       height=self.HEIGHT / 2
-                                       )
+
+        self.anim_sprite = ShieldAnim(0, 0, 1)
+        self.anim_button = UISpriteWidget(sprite=self.anim_sprite, width=self.WIDTH // 2, height=self.HEIGHT // 2)
+
         self.apple_slider = UISlider(value=self.window.apple_slider_value,
                                      min_value=1,
                                      max_value=99,
@@ -1868,7 +1939,7 @@ class ShieldInstruction(arcade.View):
 
         self.button_box.add(self.play_button.with_space_around(right=self.BUTTON_WIDTH / 4))
         self.button_box.add(self.back_button.with_space_around(left=self.BUTTON_WIDTH / 4))
-        self.right_box.add(self.gif_button.with_space_around(bottom=self.OFFSET / 2))
+        self.right_box.add(self.anim_button.with_space_around(bottom=self.OFFSET / 2))
         self.right_box.add(self.button_box)
         self.slider_box.add(self.apple_slider)
         self.slider_box.add(self.number)
@@ -2370,6 +2441,10 @@ class ShieldMinigame(arcade.View):
     def on_hide_view(self):
         # show mouse
         self.window.set_mouse_visible(True)
+
+    def on_show_view_view(self):
+        # show mouse
+        self.window.set_mouse_visible(False)
 
     def on_key_press(self, symbol: int, modifiers: int):
         if symbol == arcade.key.ESCAPE:
