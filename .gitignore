@@ -1,8 +1,5 @@
-# Default ignored files
-/shelf/
-/workspace.xml
-/.idea/
-/.build/
-/.venv/
-/dist/
-/.spec
+.idea/
+.build/
+.venv/
+dist/
+.spec
