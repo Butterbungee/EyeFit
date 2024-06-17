@@ -910,7 +910,7 @@ class Settings(arcade.View):
         self.h_button_box.add(self.apply_button.with_space_around(right=20))
         self.h_button_box.add(self.back_button.with_space_around(left=20))
 
-        self.v_box = UIBoxLayout(vertical=True).with_background(arcade.load_texture(":assets:/apple_bg_default.png"))
+        self.v_box = UIBoxLayout(vertical=True)
         self.v_box.add(self.h_volume_box)
         self.v_box.add(self.h_mode_box)
         self.v_box.add(self.h_button_box)
