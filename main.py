@@ -22,9 +22,9 @@ print("sys.argv[0]:", sys.argv[0], Path(sys.argv[0]).resolve())
 SPRITE_SCALING_APPLE = 0.1
 SPRITE_SCALING_BASKET = 0.2
 APPLE_COUNT = 1
-BASKET_SPEED = 5
-SPEED_INCREMENT = 1
-MAX_SPEED = 8
+BASKET_SPEED = 2.5
+SPEED_INCREMENT = 0.1
+MAX_SPEED = 3
 OFFSET_MULTIPLIER = 0.08
 # Number of bins in each dimension
 HEATMAP_RESOLUTION_X = 16 * 8
@@ -37,6 +37,14 @@ RADIANS_PER_FRAME = 0.08
 
 
 def draw_line(start_x, start_y, end_x, end_y, opacity):
+    """
+
+    :param start_x:
+    :param start_y:
+    :param end_x:
+    :param end_y:
+    :param opacity:
+    """
     arcade.draw_line(start_x, start_y, end_x, end_y, arcade.make_transparent_color(arcade.color.BLACK, opacity),
                      6)
 
@@ -514,7 +522,7 @@ class ModalSection(arcade.Section):
         self.manager.enable()
 
         # Create a vertical BoxGroup to align buttons
-        self.v_box = arcade.gui.UIBoxLayout(vertical=True)
+        self.v_box = arcade.gui.UIBoxLayout()
 
         # Create the button styles
         self.continue_button_style = {
@@ -603,8 +611,8 @@ class Basket(arcade.Sprite):
         self.cur_position = 0
         Basket.speed = BASKET_SPEED
         self.available = True
-        self.runaway_speed = 20
-        self.old_speed = 5
+        self.runaway_speed = 10
+        self.old_speed = BASKET_SPEED
 
     def update(self):
         """ Have a sprite follow a path """
@@ -1055,6 +1063,7 @@ class AppleInstruction(arcade.View):
         self.right_box = arcade.gui.UIBoxLayout(vertical=True)
         self.left_box = arcade.gui.UIBoxLayout(vertical=True)
         self.slider_box = arcade.gui.UIBoxLayout(vertical=False)
+        self.speed_slider_box = arcade.gui.UIBoxLayout(vertical=False)
         self.background_box = arcade.gui.UIBoxLayout(vertical=False)
         self.button_box = arcade.gui.UIBoxLayout(vertical=False)
 
@@ -1097,8 +1106,20 @@ class AppleInstruction(arcade.View):
                                         height=self.BUTTON_HEIGHT,
                                         style=self.play_button_style
                                         )
-        self.anim_sprite = AppleAnim(0, 0, 1)
-        self.anim_button = UISpriteWidget(sprite=self.anim_sprite, width=self.WIDTH // 2, height=self.HEIGHT // 2)
+        # self.anim_sprite = AppleAnim(0, 0, 1)
+        # self.anim_button = UISpriteWidget(sprite=self.anim_sprite, width=self.WIDTH // 2, height=self.HEIGHT // 2)
+        self.anim_button = UITextArea(width=self.WIDTH // 2,
+                                      height=self.HEIGHT // 2,
+                                      text="Naprowadź wskaźnik najpierw na jabłko a następnie na kosz aby zdobyć punkt.",
+                                      font_size=self.OFFSET / 3,
+                                      text_color=arcade.color.BLACK)
+
+        self.speed_slider = UISlider(value=self.window.basket_speed,
+                                     min_value=1,
+                                     max_value=7.5,
+                                     width=int(self.WIDTH / 3),
+                                     height=self.OFFSET / 2
+                                     )
 
         self.apple_slider = UISlider(value=self.window.apple_slider_value,
                                      min_value=1,
@@ -1106,15 +1127,27 @@ class AppleInstruction(arcade.View):
                                      width=int(self.WIDTH / 3),
                                      height=self.OFFSET / 2
                                      )
+
         self.number = UILabel(text=f"{int(self.apple_slider.value):02.0f}",
                               font_size=self.OFFSET / 3,
                               text_color=arcade.color.BLACK
                               )
 
+        self.speed_number = UILabel(text=f"{int(self.speed_slider.value):02.0f}",
+                                    font_size=self.OFFSET / 3,
+                                    text_color=arcade.color.BLACK
+                                    )
+
         self.slider_label = UILabel(text="Number of apples",
                                     font_size=self.OFFSET / 3,
                                     text_color=arcade.color.BLACK
                                     )
+
+        self.speed_slider_label = UILabel(text="Basket Speed",
+                                          font_size=self.OFFSET / 3,
+                                          text_color=arcade.color.BLACK
+                                          )
+
         if self.window.background_type == "cam":
             self.cam_background = UITextureButton(
                 texture=arcade.load_texture(":assets:/bg_cam_selected.png"),
@@ -1153,12 +1186,16 @@ class AppleInstruction(arcade.View):
         self.right_box.add(self.button_box)
         self.slider_box.add(self.apple_slider)
         self.slider_box.add(self.number)
+        self.speed_slider_box.add(self.speed_slider)
+        self.speed_slider_box.add(self.speed_number)
         self.background_box.add(self.normal_background.with_space_around(right=self.OFFSET / 4))
         self.background_box.add(self.cam_background.with_space_around(left=self.OFFSET / 4))
         self.left_box.add(self.background_label)
         self.left_box.add(self.background_box.with_space_around(bottom=self.OFFSET))
         self.left_box.add(self.slider_label)
         self.left_box.add(self.slider_box)
+        self.left_box.add(self.speed_slider_label)
+        self.left_box.add(self.speed_slider_box)
         self.horizontal_box.add(self.left_box.with_space_around(right=self.OFFSET / 4))
         self.horizontal_box.add(self.right_box.with_space_around(left=self.OFFSET / 4))
         self.vertical_box.add(self.title_label.with_space_around(bottom=self.OFFSET / 2))
@@ -1219,6 +1256,13 @@ class AppleInstruction(arcade.View):
             self.number.text = f"{int(self.apple_slider.value):02.0f}"
             self.number.fit_content()
 
+        @self.speed_slider.event()
+        def on_change(event: UIOnChangeEvent):
+            print("Speed Slider Change:", event)
+            self.speed_number.text = f"{int(self.speed_slider.value):02.0f}"
+            self.speed_number.fit_content()
+            self.window.basket_speed = int(self.speed_slider.value)
+
     def on_show_view(self):
         arcade.set_background_color(arcade.color.PASTEL_ORANGE)
         self.window.last_view = self.window.current_view
@@ -1227,8 +1271,8 @@ class AppleInstruction(arcade.View):
         self.clear()
         self.manager.draw()
 
-    def on_update(self, delta_time: float):
-        self.anim_sprite.update_animation()
+    # def on_update(self, delta_time: float):
+    # self.anim_sprite.update_animation()
 
     def on_hide_view(self):
         self.manager.disable()
@@ -1309,6 +1353,9 @@ class AppleMinigame(arcade.View):
         self.basket = Basket(":assets:/basket.png",
                              SPRITE_SCALING_BASKET,
                              self.position_list)
+
+        self.basket.speed = self.window.basket_speed
+        self.basket.old_speed = self.window.basket_speed
 
         # Declarations of constants
         self.pointer_x = 0
@@ -1411,15 +1458,9 @@ class AppleMinigame(arcade.View):
 
         # Set up the player
         if self.window.background_type == "cam":
-            player = self.player_sprite = arcade.Sprite(":assets:/cam_apple.png",
-                                                        SPRITE_SCALING_APPLE,
-                                                        center_x=0,
-                                                        center_y=0)
+            player = self.player_sprite = arcade.Sprite(":assets:/cam_apple.png", SPRITE_SCALING_APPLE)
         else:
-            player = self.player_sprite = arcade.Sprite(":assets:/apple.png",
-                                                        SPRITE_SCALING_APPLE,
-                                                        center_x=0,
-                                                        center_y=0)
+            player = self.player_sprite = arcade.Sprite(":assets:/apple.png", SPRITE_SCALING_APPLE)
 
         player.alpha = 0
         self.player_list.append(player)
@@ -1678,7 +1719,7 @@ class MinigameOverView(arcade.View):
                                 self.RECORD_BOTTOM - self.RECORD_OFFSET,
                                 self.RECORD_WIDTH,
                                 self.RECORD_HEIGHT,
-                                name='Click to reveal Heatmap'))
+                                name='Click to toggle Heatmap'))
 
         self.add_section(Heatmap(self.RECORD_LEFT - self.RECORD_OFFSET,
                                  self.RECORD_BOTTOM - self.RECORD_OFFSET,
@@ -1846,6 +1887,8 @@ class ShieldInstruction(arcade.View):
         self.right_box = arcade.gui.UIBoxLayout(vertical=True)
         self.left_box = arcade.gui.UIBoxLayout(vertical=True)
         self.slider_box = arcade.gui.UIBoxLayout(vertical=False)
+        self.lives_slider_box = arcade.gui.UIBoxLayout(vertical=False)
+        self.travel_slider_box = arcade.gui.UIBoxLayout(vertical=False)
         self.background_box = arcade.gui.UIBoxLayout(vertical=False)
         self.button_box = arcade.gui.UIBoxLayout(vertical=False)
 
@@ -1887,16 +1930,22 @@ class ShieldInstruction(arcade.View):
                                         style=self.play_button_style
                                         )
 
-        self.anim_sprite = ShieldAnim(0, 0, 1)
-        self.anim_button = UISpriteWidget(sprite=self.anim_sprite, width=self.WIDTH // 2, height=self.HEIGHT // 2)
+        # self.anim_sprite = ShieldAnim(0, 0, 1)
+        # self.anim_button = UISpriteWidget(sprite=self.anim_sprite, width=self.WIDTH // 2, height=self.HEIGHT // 2)
+        self.anim_button = UITextArea(width=self.WIDTH // 2,
+                                      height=self.HEIGHT // 2,
+                                      text="Przemieść wskaźnik na jedną ze strzałek aby obrócić tarczę. Nie pozwól aby asteroidy udeżyły w statek.",
+                                      font_size=self.OFFSET / 3,
+                                      text_color=arcade.color.BLACK)
 
-        self.apple_slider = UISlider(value=self.window.apple_slider_value,
-                                     min_value=1,
-                                     max_value=99,
-                                     width=int(self.WIDTH / 3),
-                                     height=self.OFFSET / 2
-                                     )
-        self.number = UILabel(text=f"{int(self.apple_slider.value):02.0f}",
+        self.shield_slider = UISlider(value=self.window.shield_slider_value,
+                                      min_value=1,
+                                      max_value=99,
+                                      width=int(self.WIDTH / 3),
+                                      height=self.OFFSET / 2
+                                      )
+
+        self.number = UILabel(text=f"{int(self.shield_slider.value):02.0f}",
                               font_size=self.OFFSET / 3,
                               text_color=arcade.color.BLACK
                               )
@@ -1905,6 +1954,41 @@ class ShieldInstruction(arcade.View):
                                     font_size=self.OFFSET / 3,
                                     text_color=arcade.color.BLACK
                                     )
+
+        self.lives_slider = UISlider(value=self.window.lives_slider_value,
+                                     min_value=3,
+                                     max_value=10,
+                                     width=int(self.WIDTH / 3),
+                                     height=self.OFFSET / 2
+                                     )
+
+        self.lives_number = UILabel(text=f"{int(self.lives_slider.value):02.0f}",
+                                    font_size=self.OFFSET / 3,
+                                    text_color=arcade.color.BLACK
+                                    )
+
+        self.lives_slider_label = UILabel(text="Number of Ship Lives",
+                                          font_size=self.OFFSET / 3,
+                                          text_color=arcade.color.BLACK
+                                          )
+
+        self.travel_slider = UISlider(value=self.window.travel_slider_value,
+                                      min_value=5,
+                                      max_value=15,
+                                      width=int(self.WIDTH / 3),
+                                      height=self.OFFSET / 2
+                                      )
+
+        self.travel_number = UILabel(text=f"{int(self.travel_slider.value):02.0f}",
+                                     font_size=self.OFFSET / 3,
+                                     text_color=arcade.color.BLACK
+                                     )
+
+        self.travel_slider_label = UILabel(text="Meteor Travel Time",
+                                           font_size=self.OFFSET / 3,
+                                           text_color=arcade.color.BLACK
+                                           )
+
         if self.window.background_type == "cam":
             self.cam_background = UITextureButton(
                 texture=arcade.load_texture(":assets:/bg_cam_selected.png"),
@@ -1941,14 +2025,22 @@ class ShieldInstruction(arcade.View):
         self.button_box.add(self.back_button.with_space_around(left=self.BUTTON_WIDTH / 4))
         self.right_box.add(self.anim_button.with_space_around(bottom=self.OFFSET / 2))
         self.right_box.add(self.button_box)
-        self.slider_box.add(self.apple_slider)
+        self.slider_box.add(self.shield_slider)
         self.slider_box.add(self.number)
+        self.lives_slider_box.add(self.lives_slider)
+        self.lives_slider_box.add(self.lives_number)
+        self.travel_slider_box.add(self.travel_slider)
+        self.travel_slider_box.add(self.travel_number)
         self.background_box.add(self.normal_background.with_space_around(right=self.OFFSET / 4))
         self.background_box.add(self.cam_background.with_space_around(left=self.OFFSET / 4))
         self.left_box.add(self.background_label)
         self.left_box.add(self.background_box.with_space_around(bottom=self.OFFSET))
         self.left_box.add(self.slider_label)
         self.left_box.add(self.slider_box)
+        self.left_box.add(self.lives_slider_label)
+        self.left_box.add(self.lives_slider_box)
+        self.left_box.add(self.travel_slider_label)
+        self.left_box.add(self.travel_slider_box)
         self.horizontal_box.add(self.left_box.with_space_around(right=self.OFFSET / 4))
         self.horizontal_box.add(self.right_box.with_space_around(left=self.OFFSET / 4))
         self.vertical_box.add(self.title_label.with_space_around(bottom=self.OFFSET / 2))
@@ -1992,7 +2084,7 @@ class ShieldInstruction(arcade.View):
         @self.play_button.event()
         def on_click(event: UIOnClickEvent):
             print("Play:", event)
-            self.window.enemy_count = int(self.apple_slider.value)
+            self.window.enemy_count = int(self.shield_slider.value)
             view = ShieldMinigame()
             view.setup()
             self.window.show_view(view)
@@ -2003,11 +2095,25 @@ class ShieldInstruction(arcade.View):
             view = MinigameSelect()
             self.window.show_view(view)
 
-        @self.apple_slider.event()
+        @self.shield_slider.event()
         def on_change(event: UIOnChangeEvent):
             print("Shield Slider Change:", event)
-            self.number.text = f"{int(self.apple_slider.value):02.0f}"
+            self.number.text = f"{int(self.shield_slider.value):02.0f}"
             self.number.fit_content()
+
+        @self.lives_slider.event()
+        def on_change(event: UIOnChangeEvent):
+            print("Lives Slider Change:", event)
+            self.lives_number.text = f"{int(self.lives_slider.value):02.0f}"
+            self.lives_number.fit_content()
+            self.window.lives_slider_value = int(self.lives_slider.value)
+
+        @self.travel_slider.event()
+        def on_change(event: UIOnChangeEvent):
+            print("Travel Slider Change:", event)
+            self.travel_number.text = f"{int(self.travel_slider.value):02.0f}"
+            self.travel_number.fit_content()
+            self.window.travel_slider_value = int(self.travel_slider.value)
 
     def on_show_view(self):
         arcade.set_background_color(arcade.color.DARK_PASTEL_BLUE)
@@ -2031,10 +2137,12 @@ class ShieldMinigame(arcade.View):
         self.CENTER_X = self.WIDTH // 2
         self.CENTER_Y = self.HEIGHT // 2
         self.text_color = arcade.color.WHITE
-        self.travel_time = 7
+        self.travel_time = self.window.travel_slider_value
         self.FONT_SIZE = int(self.OFFSET / 4)
-        self.lives = 3
+        self.lives = self.window.lives_slider_value
         self.window.game_lost = False
+        self.current_enemy_total = 0
+        self.current_enemy_total += 1
 
         # Timer
         self.total_time = 0.0
@@ -2064,7 +2172,7 @@ class ShieldMinigame(arcade.View):
         self.shield_sprite_list.extend([self.shield])
         self.left_sprite_list.extend([self.left])
         self.right_sprite_list.extend([self.right])
-        for number in range(3):
+        for number in range(self.lives):
             self.lives_sprite = arcade.Sprite(":assets:/ship.png", SPRITE_SCALE)
             self.lives_sprite.center_x = self.WIDTH - self.OFFSET // 5 - number * 75
             self.lives_sprite.center_y = self.HEIGHT - self.OFFSET // 5
@@ -2393,6 +2501,7 @@ class ShieldMinigame(arcade.View):
                     self.dust_list.append(DustAnim(enemy.center_x, enemy.center_y, 2))
                     enemy.remove_from_sprite_lists()
                     self.window.total_score += 1
+                    self.current_enemy_total += 1
 
             for enemy in self.enemy_list:
                 if arcade.check_for_collision(self.ship, enemy):
@@ -2401,8 +2510,9 @@ class ShieldMinigame(arcade.View):
                     self.ship.shake()
                     self.lives_sprite_list.pop()
                     self.lives -= 1
+                    self.current_enemy_total += 1
 
-            if self.window.total_score == self.window.enemy_count:
+            if self.current_enemy_total > self.window.enemy_count:
                 game_over_view = MinigameOverView()
                 self.window.show_view(game_over_view)
 
@@ -2470,6 +2580,9 @@ class GameWindow(arcade.Window):
         self.time_elapsed = ""
         self.apple_slider_value = 4
         self.shield_slider_value = 4
+        self.lives_slider_value = 5
+        self.travel_slider_value = 10
+        self.basket_speed = BASKET_SPEED
         self.background_type = "default"
         self.start_time = None
         self.heatmap = None
